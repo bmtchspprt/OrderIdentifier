@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BinMaster | ORD Comparison Tool</title>
+<title>BinMaster | Comprehensive ORD Delta</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <style>
 :root{
@@ -12,40 +12,35 @@
   --white: #FFFFFF; --border: #D2D8E0; --blue: #0060A8;
   --green: #1B6B2F; --r: 5px; --sh: 0 2px 8px rgba(0,0,0,.11);
 }
-body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);margin:0;padding:20px;font-size:13px;}
+body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);margin:0;padding:20px;font-size:12px;}
 
-/* Header */
-.header{max-width:1000px;margin:0 auto 20px;display:flex;align-items:center;gap:15px;}
+.header{max-width:1400px;margin:0 auto 20px;display:flex;align-items:center;gap:15px;}
 .logo-mark{font-size:28px;font-weight:900;font-style:italic;letter-spacing:-.5px;}
 .logo-mark .r{color:var(--red);}
 .title-area h1{font-size:18px;margin:0;text-transform:uppercase;}
 
-/* Comparison Grid */
-.wrap{max-width:1000px;margin:0 auto;display:grid;gap:20px;}
+.wrap{max-width:1400px;margin:0 auto;display:grid;gap:20px;}
 .drop-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
 
 .card{background:var(--white);border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--sh);overflow:hidden;}
-.card-hd{background:var(--nav);color:var(--white);padding:10px 15px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;}
+.card-hd{background:var(--nav);color:var(--white);padding:10px 15px;font-size:11px;font-weight:700;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;}
 
-/* Drop Zones */
-.drop-zone{padding:40px 20px;text-align:center;border:2px dashed var(--border);margin:15px;border-radius:var(--r);transition:0.2s;cursor:pointer;background:#FAFBFF;}
+.drop-zone{padding:30px 20px;text-align:center;border:2px dashed var(--border);margin:15px;border-radius:var(--r);transition:0.2s;cursor:pointer;background:#FAFBFF;}
 .drop-zone.drag-over{border-color:var(--red);background:var(--red-lt);}
-.dz-main{font-weight:700;display:block;margin-bottom:5px;font-size:12px;}
-.dz-sub{font-size:10px;color:var(--text-m);}
-.file-name{margin-top:10px;color:var(--blue);font-weight:700;font-size:11px;}
+.file-name{margin-top:10px;color:var(--blue);font-weight:700;}
 
-/* Results Table */
-.results-area{display:none;}
-table{width:100%;border-collapse:collapse;}
-th{background:#f0f2f5;text-align:left;padding:10px;font-size:10px;text-transform:uppercase;border-bottom:2px solid var(--border);}
-td{padding:10px;border-bottom:1px solid var(--border);}
-tr:hover{background:#f9f9f9;}
-.ord-font{font-family:monospace;font-weight:700;color:var(--red);font-size:13px;}
+.results-area{display:none; margin-top:10px;}
+.tbl-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;white-space:nowrap;}
+th{background:#f0f2f5;text-align:left;padding:8px 10px;font-size:10px;text-transform:uppercase;border-bottom:2px solid var(--border);position:sticky;top:0;}
+td{padding:8px 10px;border-bottom:1px solid var(--border);font-size:11px;}
+tr:nth-child(even){background:#fafafa;}
+.ord-font{font-family:monospace;font-weight:700;color:var(--red);}
 
 .btn{padding:10px 20px;border-radius:var(--r);border:none;cursor:pointer;font-weight:700;transition:0.2s;font-size:12px;}
 .btn-red{background:var(--red);color:white;}
-.btn-red:hover{background:var(--red-dk);}
 .btn-gray{background:var(--bg);border:1px solid var(--border);color:var(--text-m);}
+.btn-sm{padding:4px 8px; font-size:10px;}
 </style>
 </head>
 <body>
@@ -53,64 +48,53 @@ tr:hover{background:#f9f9f9;}
 <div class="header">
   <div class="logo-mark"><span class="r">Bin</span><span>Master</span></div>
   <div class="title-area">
-    <h1>ORD Comparison Tool</h1>
-    <div style="font-size:10px; color:var(--text-m)">Identify new orders between two spreadsheet exports</div>
+    <h1>Comprehensive ORD Delta</h1>
+    <div style="font-size:10px; color:var(--text-m)">Full line-item breakdown for new orders</div>
   </div>
 </div>
 
 <div class="wrap">
   <div class="drop-grid">
-    <!-- Master/Old File -->
     <div class="card">
-      <div class="card-hd">Step 1: Baseline (Older Export)</div>
+      <div class="card-hd">Step 1: Baseline (Older)</div>
       <div id="dz-old" class="drop-zone" ondrop="handleDrop(event, 'old')" ondragover="handleDrag(event)">
-        <span class="dz-main">Drop OLD Spreadsheet</span>
-        <span class="dz-sub">Existing orders we already know about</span>
+        <strong>Drop OLD Spreadsheet</strong>
         <div id="name-old" class="file-name"></div>
       </div>
     </div>
 
-    <!-- New File -->
     <div class="card">
-      <div class="card-hd">Step 2: Current (Newer Export)</div>
+      <div class="card-hd">Step 2: Current (Newer)</div>
       <div id="dz-new" class="drop-zone" ondrop="handleDrop(event, 'new')" ondragover="handleDrag(event)">
-        <span class="dz-main">Drop NEW Spreadsheet</span>
-        <span class="dz-sub">The fresh list containing potential new orders</span>
+        <strong>Drop NEW Spreadsheet</strong>
         <div id="name-new" class="file-name"></div>
       </div>
     </div>
   </div>
 
   <div style="text-align:center;">
-    <button class="btn btn-red" onclick="runComparison()">Analyze Differences</button>
-    <button class="btn btn-gray" onclick="location.reload()">Reset Tool</button>
+    <button class="btn btn-red" onclick="runComparison()">Analyze All Columns</button>
+    <button class="btn btn-gray" onclick="location.reload()">Reset</button>
   </div>
 
-  <!-- Results -->
   <div id="results-wrap" class="results-area card">
-    <div class="card-hd" style="background:var(--green); display:flex; justify-content:space-between; align-items:center;">
+    <div class="card-hd" style="background:var(--green);">
       <span>Comparison Results</span>
-      <button class="btn btn-gray" style="padding:4px 8px; font-size:9px;" onclick="copyAllOrds()">Copy All New ORDs</button>
+      <button class="btn btn-gray btn-sm" onclick="copyOrds()">Copy New ORDs</button>
     </div>
-    <table>
-      <thead>
-        <tr>
-          <th style="width:150px">ORD Number</th>
-          <th>Customer Info / Details</th>
-        </tr>
-      </thead>
-      <tbody id="res-tbody"></tbody>
-    </table>
+    <div class="tbl-wrap">
+      <table id="res-table">
+        <thead id="res-thead"></thead>
+        <tbody id="res-tbody"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
 <script>
-let store = { old: new Set(), new: [] };
+let store = { oldIds: new Set(), newRows: [], columns: [] };
 
-function handleDrag(e) {
-  e.preventDefault();
-  e.currentTarget.classList.add('drag-over');
-}
+function handleDrag(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
 
 function handleDrop(e, type) {
   e.preventDefault();
@@ -124,65 +108,93 @@ function handleDrop(e, type) {
   reader.onload = (event) => {
     const workbook = XLSX.read(new Uint8Array(event.target.result), {type: 'array'});
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const json = XLSX.utils.sheet_to_json(sheet);
+    // Use raw:false to get formatted strings for ORDs
+    const json = XLSX.utils.sheet_to_json(sheet, {defval: ""});
+
+    const processed = processRows(json);
 
     if (type === 'old') {
-      // Find ORD column dynamically
-      store.old = new Set(json.map(row => findOrd(row)));
+      store.oldIds = new Set(processed.map(r => r._ordId));
     } else {
-      store.new = json;
+      store.newRows = processed;
+      // Capture all column headers from the first row of the new file
+      if (json.length > 0) store.columns = Object.keys(json[0]);
     }
   };
   reader.readAsArrayBuffer(file);
 }
 
-// Attempts to find an ORD number regardless of column naming
-function findOrd(row) {
-  const keys = ['ORD', 'Order', 'Order Number', 'ORD #', 'Order#'];
-  for (let k of keys) {
-    if (row[k]) return String(row[k]).trim();
-  }
-  // Fallback: search values for pattern matching ORD-XXXXX
-  return String(Object.values(row).find(v => /ORD/i.test(v)) || '').trim();
+// Fills down values for merged-look cells (ORD and Customer)
+function processRows(rows) {
+  let lastOrd = "";
+  let lastCust = "";
+  let lastDate = "";
+
+  return rows.map(row => {
+    // Look for ORD columns
+    let currentOrd = (row["Order #"] || row["ORD"] || row["Order"] || "").toString().trim();
+    let currentCust = (row["Customer"] || "").toString().trim();
+    let currentDate = (row["Ship Date"] || "").toString().trim();
+
+    if (currentOrd) lastOrd = currentOrd;
+    if (currentCust) lastCust = currentCust;
+    if (currentDate) lastDate = currentDate;
+
+    return {
+      ...row,
+      "_ordId": lastOrd,
+      "Order #": lastOrd,     // Normalize for display
+      "Customer": lastCust,   // Normalize for display
+      "Ship Date": lastDate   // Normalize for display
+    };
+  });
 }
 
 function runComparison() {
-  if (store.old.size === 0 || store.new.length === 0) {
-    alert("Please upload both spreadsheets first.");
+  if (store.oldIds.size === 0 || store.newRows.length === 0) {
+    alert("Please load both files.");
     return;
   }
 
+  const thead = document.getElementById('res-thead');
   const tbody = document.getElementById('res-tbody');
+  thead.innerHTML = '';
   tbody.innerHTML = '';
-  let newCount = 0;
 
-  store.new.forEach(row => {
-    const currentOrd = findOrd(row);
-    if (currentOrd && !store.old.has(currentOrd)) {
-      newCount++;
+  // Build Headers
+  const trH = document.createElement('tr');
+  store.columns.forEach(col => {
+    const th = document.createElement('th');
+    th.innerText = col;
+    trH.appendChild(th);
+  });
+  thead.appendChild(trH);
+
+  // Build Rows
+  let count = 0;
+  store.newRows.forEach(row => {
+    if (row._ordId && !store.oldIds.has(row._ordId)) {
+      count++;
       const tr = document.createElement('tr');
-      // Find a customer name or description column to show
-      const details = row['Customer'] || row['Name'] || row['Ship To Name'] || '---';
-      
-      tr.innerHTML = `
-        <td class="ord-font">${currentOrd}</td>
-        <td style="color:var(--text-m)">${details}</td>
-      `;
+      store.columns.forEach(col => {
+        const td = document.createElement('td');
+        const val = row[col] || "";
+        td.innerText = val;
+        if (col === "Order #" || col === "ORD") td.className = "ord-font";
+        tr.appendChild(td);
+      });
       tbody.appendChild(tr);
     }
   });
 
   document.getElementById('results-wrap').style.display = 'block';
-  if (newCount === 0) {
-    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding:40px; color:var(--text-m);">No new orders found. Both lists match.</td></tr>';
-  }
+  if (count === 0) alert("No new orders detected.");
 }
 
-function copyAllOrds() {
-  const ords = Array.from(document.querySelectorAll('.ord-font')).map(td => td.innerText);
-  if (ords.length === 0) return;
+function copyOrds() {
+  const ords = [...new Set(Array.from(document.querySelectorAll('.ord-font')).map(td => td.innerText))];
   navigator.clipboard.writeText(ords.join('\n'));
-  alert(`${ords.length} ORD numbers copied to clipboard.`);
+  alert("Unique New ORDs copied to clipboard.");
 }
 </script>
 
