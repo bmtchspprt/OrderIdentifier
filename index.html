@@ -3,21 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BinMaster | Comprehensive ORD Delta</title>
+<title>BinMaster | ORD Comparison Tool</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <style>
 :root{
   --red: #C8102E; --red-dk: #9B0E23; --nav: #1C1C1C;
   --text: #222222; --text-m: #5A6070; --bg: #F5F6F8;
   --white: #FFFFFF; --border: #D2D8E0; --blue: #0060A8;
-  --green: #1B6B2F; --r: 5px; --sh: 0 2px 8px rgba(0,0,0,.11);
+  --green: #1B6B2F; --r: 4px; --sh: 0 2px 8px rgba(0,0,0,.11);
 }
-body{font-family: Arial, Helvetica, sans-serif; background:var(--bg); color:var(--text); margin:0; padding:20px; font-size:12px;}
+body{font-family: Arial, sans-serif; background:var(--bg); color:var(--text); margin:0; padding:20px; font-size:12px;}
 
-/* Header Branding Update */
+/* Branding Update */
 .header{max-width:1400px; margin:0 auto 20px; display:flex; align-items:center; gap:15px;}
-.logo-mark{font-size:32px; font-weight:900; font-style:italic; letter-spacing:-1px; color: var(--red); font-family: Arial, sans-serif;}
-.title-area h1{font-size:18px; margin:0; text-transform:uppercase; font-weight: 800;}
+.logo-mark{font-size:32px; font-weight:900; font-style:italic; letter-spacing:-1.5px; color: var(--red); text-transform: none;}
+.title-area h1{font-size:18px; margin:0; text-transform:uppercase; font-weight: 800; color: var(--nav);}
 
 .wrap{max-width:1400px; margin:0 auto; display:grid; gap:20px;}
 .drop-grid{display:grid; grid-template-columns: 1fr 1fr; gap:20px;}
@@ -26,21 +26,22 @@ body{font-family: Arial, Helvetica, sans-serif; background:var(--bg); color:var(
 .card-hd{background:var(--nav); color:var(--white); padding:10px 15px; font-size:11px; font-weight:700; text-transform:uppercase; display:flex; justify-content:space-between; align-items:center;}
 
 .drop-zone{padding:30px 20px; text-align:center; border:2px dashed var(--border); margin:15px; border-radius:var(--r); transition:0.2s; cursor:pointer; background:#FAFBFF;}
-.drop-zone.drag-over{border-color:var(--red); background:var(--red-lt);}
+.drop-zone.drag-over{border-color:var(--red); background: #fff1f1;}
 .file-name{margin-top:10px; color:var(--blue); font-weight:700;}
 
 .results-area{display:none; margin-top:10px;}
-.tbl-wrap{overflow-x:auto;}
+.tbl-wrap{overflow-x:auto; max-height: 600px;}
 table{width:100%; border-collapse:collapse; white-space:nowrap;}
-th{background:#f0f2f5; text-align:left; padding:8px 10px; font-size:10px; text-transform:uppercase; border-bottom:2px solid var(--border); position:sticky; top:0;}
+th{background:#f0f2f5; text-align:left; padding:10px; font-size:10px; text-transform:uppercase; border-bottom:2px solid var(--border); position:sticky; top:0; z-index: 10;}
 td{padding:8px 10px; border-bottom:1px solid var(--border); font-size:11px;}
 tr:nth-child(even){background:#fafafa;}
-.ord-font{font-family: Arial, sans-serif; font-weight:700; color:var(--red);}
+tr:hover{background: #f1f5f9;}
+.ord-font{font-weight:700; color:var(--red);}
 
 .btn{padding:10px 20px; border-radius:var(--r); border:none; cursor:pointer; font-weight:700; transition:0.2s; font-size:12px;}
 .btn-red{background:var(--red); color:white;}
 .btn-gray{background:var(--bg); border:1px solid var(--border); color:var(--text-m);}
-.btn-sm{padding:4px 8px; font-size:10px;}
+.btn-sm{padding:5px 10px; font-size:10px;}
 </style>
 </head>
 <body>
@@ -72,9 +73,9 @@ tr:nth-child(even){background:#fafafa;}
     </div>
   </div>
 
-  <div style="text-align:center;">
+  <div style="text-align:center; padding: 10px;">
     <button class="btn btn-red" onclick="runComparison()">Analyze All Columns</button>
-    <button class="btn btn-gray" onclick="location.reload()">Reset</button>
+    <button class="btn btn-gray" onclick="location.reload()">Reset Tool</button>
   </div>
 
   <div id="results-wrap" class="results-area card">
@@ -122,38 +123,42 @@ function handleDrop(e, type) {
   reader.readAsArrayBuffer(file);
 }
 
+/** * Logic to fill down ORD numbers and Customers 
+ * so that multi-item orders are grouped correctly.
+ */
 function processRows(rows) {
   let lastOrd = "";
   let lastCust = "";
   let lastDate = "";
 
   return rows.map(row => {
-    // Dynamic column detection for common names found in images
+    // Detect column names dynamically
     let ordKey = Object.keys(row).find(k => k.toLowerCase().includes("order") || k.toLowerCase() === "ord") || "Order #";
     let custKey = Object.keys(row).find(k => k.toLowerCase().includes("customer")) || "Customer";
     let dateKey = Object.keys(row).find(k => k.toLowerCase().includes("date")) || "Ship Date";
 
-    let currentOrd = (row[ordKey] || "").toString().trim();
-    let currentCust = (row[custKey] || "").toString().trim();
-    let currentDate = (row[dateKey] || "").toString().trim();
+    let currentOrd = String(row[ordKey] || "").trim();
+    let currentCust = String(row[custKey] || "").trim();
+    let currentDate = String(row[dateKey] || "").trim();
 
+    // If this row has a new ORD, update our "last seen" memory
     if (currentOrd) lastOrd = currentOrd;
     if (currentCust) lastCust = currentCust;
     if (currentDate) lastDate = currentDate;
 
     return {
       ...row,
-      "_ordId": lastOrd,
-      [ordKey]: lastOrd,
-      [custKey]: lastCust,
-      [dateKey]: lastDate
+      "_ordId": lastOrd, // This is what we use for the diff logic
+      [ordKey]: lastOrd,  // Fill visually
+      [custKey]: lastCust, // Fill visually
+      [dateKey]: lastDate  // Fill visually
     };
   });
 }
 
 function runComparison() {
   if (store.oldIds.size === 0 || store.newRows.length === 0) {
-    alert("Please load both files.");
+    alert("Please upload both Baseline and Current spreadsheets.");
     return;
   }
 
@@ -162,6 +167,7 @@ function runComparison() {
   thead.innerHTML = '';
   tbody.innerHTML = '';
 
+  // Create Headers
   const trH = document.createElement('tr');
   store.columns.forEach(col => {
     const th = document.createElement('th');
@@ -170,8 +176,10 @@ function runComparison() {
   });
   thead.appendChild(trH);
 
+  // Filter and Create Rows
   let count = 0;
   store.newRows.forEach(row => {
+    // Only show rows where the ORD was NOT in the old baseline
     if (row._ordId && !store.oldIds.has(row._ordId)) {
       count++;
       const tr = document.createElement('tr');
@@ -179,7 +187,10 @@ function runComparison() {
         const td = document.createElement('td');
         const val = row[col] || "";
         td.innerText = val;
-        if (col.toLowerCase().includes("order") || col.toLowerCase() === "ord") td.className = "ord-font";
+        // Make the Order # red and bold
+        if (col.toLowerCase().includes("order") || col.toLowerCase() === "ord") {
+            td.className = "ord-font";
+        }
         tr.appendChild(td);
       });
       tbody.appendChild(tr);
@@ -187,13 +198,14 @@ function runComparison() {
   });
 
   document.getElementById('results-wrap').style.display = 'block';
-  if (count === 0) alert("No new orders detected.");
+  if (count === 0) alert("No new orders found between these two files.");
 }
 
 function copyOrds() {
   const ords = [...new Set(Array.from(document.querySelectorAll('.ord-font')).map(td => td.innerText))];
+  if (ords.length === 0) return;
   navigator.clipboard.writeText(ords.join('\n'));
-  alert("Unique New ORDs copied to clipboard.");
+  alert(`${ords.length} Unique Order Numbers copied to clipboard.`);
 }
 </script>
 
