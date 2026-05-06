@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BINMASTER | ORD Comparison Tool</title>
+<title>BINMASTER | ORD Delta Tool</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <style>
 :root{
@@ -14,9 +14,9 @@
 }
 body{font-family: Arial, Helvetica, sans-serif; background:var(--bg); color:var(--text); margin:0; padding:20px; font-size:12px;}
 
-/* Branding: ALL CAPS, ALL RED, ITALIC BOLD */
+/* Branding: ALL CAPS, ALL RED, BOLD */
 .header{max-width:1400px; margin:0 auto 20px; display:flex; align-items:center; gap:15px;}
-.logo-mark{font-size:32px; font-weight:900; font-style:italic; letter-spacing:-1.5px; color: var(--red); text-transform: uppercase;}
+.logo-mark{font-size:34px; font-weight:900; font-style:italic; letter-spacing:-1.5px; color: var(--red); text-transform: uppercase;}
 .title-area h1{font-size:18px; margin:0; text-transform:uppercase; font-weight: 800; color: var(--nav);}
 
 .wrap{max-width:1400px; margin:0 auto; display:grid; gap:20px;}
@@ -41,7 +41,6 @@ tr:hover{background: #f1f5f9;}
 .btn{padding:10px 20px; border-radius:var(--r); border:none; cursor:pointer; font-weight:700; transition:0.2s; font-size:12px;}
 .btn-red{background:var(--red); color:white;}
 .btn-gray{background:var(--bg); border:1px solid var(--border); color:var(--text-m);}
-.btn-sm{padding:5px 10px; font-size:10px;}
 </style>
 </head>
 <body>
@@ -50,7 +49,7 @@ tr:hover{background: #f1f5f9;}
   <div class="logo-mark">BINMASTER</div>
   <div class="title-area">
     <h1>Comprehensive ORD Delta</h1>
-    <div style="font-size:10px; color:var(--text-m)">Full line-item breakdown for new orders</div>
+    <div style="font-size:10px; color:var(--text-m)">Visual Anchor Logic: Capturing multi-line items</div>
   </div>
 </div>
 
@@ -81,7 +80,7 @@ tr:hover{background: #f1f5f9;}
   <div id="results-wrap" class="results-area card">
     <div class="card-hd" style="background:var(--green);">
       <span>Comparison Results</span>
-      <button class="btn btn-gray btn-sm" onclick="copyOrds()">Copy New ORDs</button>
+      <button class="btn btn-gray" style="padding:5px 10px; font-size:10px;" onclick="copyOrds()">Copy New ORDs</button>
     </div>
     <div class="tbl-wrap">
       <table id="res-table">
@@ -110,12 +109,13 @@ function handleDrop(e, type) {
     const workbook = XLSX.read(new Uint8Array(event.target.result), {type: 'array'});
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     
-    // Convert sheet to JSON ensuring NO rows are skipped
+    // Convert to JSON with forced empty string defaults to prevent skipping cells
     const rawJson = XLSX.utils.sheet_to_json(sheet, { defval: "", blankrows: true });
-    const processed = processRows(rawJson);
+    const processed = processVisualRows(rawJson);
 
     if (type === 'old') {
-      store.oldIds = new Set(processed.map(r => r._ordId).filter(id => id !== ""));
+      // Map the baseline IDs
+      store.oldIds = new Set(processed.map(r => r._visualId).filter(id => id !== ""));
     } else {
       store.newRows = processed;
       if (rawJson.length > 0) store.columns = Object.keys(rawJson[0]);
@@ -124,43 +124,42 @@ function handleDrop(e, type) {
   reader.readAsArrayBuffer(file);
 }
 
-function processRows(rows) {
-  let lastOrd = "";
-  let lastCust = "";
-  let lastDate = "";
+function processVisualRows(rows) {
+  let currentActiveId = "";
+  let currentCustomer = "";
+  let currentShipDate = "";
 
-  // Filter out completely blank rows at the end, but process rows with missing ORD numbers
+  // The logic mimics visual scanning of a printed sheet
   return rows.filter(row => Object.values(row).some(v => v !== "")).map(row => {
-    let ordKey = Object.keys(row).find(k => {
-      let lk = k.toLowerCase().trim();
-      return lk === "ord" || lk.includes("order #") || lk === "order";
-    }) || "Order #";
-    
+    let ordKey = Object.keys(row).find(k => k.toLowerCase().includes("order #") || k.toLowerCase() === "ord") || "Order #";
     let custKey = Object.keys(row).find(k => k.toLowerCase().includes("customer")) || "Customer";
     let dateKey = Object.keys(row).find(k => k.toLowerCase().includes("date")) || "Ship Date";
 
-    let valOrd = String(row[ordKey] || "").trim();
-    let valCust = String(row[custKey] || "").trim();
-    let valDate = String(row[dateKey] || "").trim();
+    let rawOrd = String(row[ordKey] || "").trim();
+    let rawCust = String(row[custKey] || "").trim();
+    let rawDate = String(row[dateKey] || "").trim();
 
-    // Fill-down logic: Inherit values if the current row is blank
-    if (valOrd !== "") lastOrd = valOrd;
-    if (valCust !== "") lastCust = valCust;
-    if (valDate !== "") lastDate = valDate;
+    // If we see a new Order #, update the active anchor
+    if (rawOrd !== "") {
+        currentActiveId = rawOrd;
+        currentCustomer = rawCust;
+        currentShipDate = rawDate;
+    }
 
-    let newRow = { ...row };
-    newRow._ordId = lastOrd; 
-    newRow[ordKey] = lastOrd; 
-    newRow[custKey] = lastCust;
-    newRow[dateKey] = lastDate;
+    // Attach current row to the active anchor (Visual grouping)
+    let visualRow = { ...row };
+    visualRow._visualId = currentActiveId; 
+    visualRow[ordKey] = currentActiveId;
+    visualRow[custKey] = currentCustomer;
+    visualRow[dateKey] = currentShipDate;
 
-    return newRow;
+    return visualRow;
   });
 }
 
 function runComparison() {
   if (store.oldIds.size === 0 || store.newRows.length === 0) {
-    alert("Please upload both files.");
+    alert("Load baseline and current files first.");
     return;
   }
 
@@ -177,19 +176,17 @@ function runComparison() {
   });
   thead.appendChild(trH);
 
-  let newItemsCount = 0;
+  let counter = 0;
   store.newRows.forEach(row => {
-    // Check if the inherited ORD ID is missing from the baseline
-    if (row._ordId && !store.oldIds.has(row._ordId)) {
-      newItemsCount++;
+    // If the visual anchor ID was NOT in the old file, show this row
+    if (row._visualId && !store.oldIds.has(row._visualId)) {
+      counter++;
       const tr = document.createElement('tr');
       store.columns.forEach(col => {
         const td = document.createElement('td');
         const val = row[col] || "";
         td.innerText = val;
-        
-        let lCol = col.toLowerCase().trim();
-        if (lCol === "ord" || lCol.includes("order #") || lCol === "order") {
+        if (col.toLowerCase().includes("order #") || col.toLowerCase() === "ord") {
           td.className = "ord-font";
         }
         tr.appendChild(td);
@@ -199,14 +196,14 @@ function runComparison() {
   });
 
   document.getElementById('results-wrap').style.display = 'block';
-  if (newItemsCount === 0) alert("No differences found.");
+  if (counter === 0) alert("No new orders found compared to baseline.");
 }
 
 function copyOrds() {
   const ords = [...new Set(Array.from(document.querySelectorAll('.ord-font')).map(td => td.innerText))];
   if (ords.length === 0) return;
   navigator.clipboard.writeText(ords.join('\n'));
-  alert(`${ords.length} unique ORD numbers copied to clipboard.`);
+  alert(`${ords.length} new Order IDs copied.`);
 }
 </script>
 
