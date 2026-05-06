@@ -50,7 +50,7 @@ tr:hover{background: #f1f5f9;}
   <div class="logo-mark">BINMASTER</div>
   <div class="title-area">
     <h1>Comprehensive ORD Delta</h1>
-    <div style="font-size:10px; color:var(--text-m)">Unified ID Logic: Solving blank row association</div>
+    <div style="font-size:10px; color:var(--text-m)">Strict Row Extraction: Capturing every line item</div>
   </div>
 </div>
 
@@ -79,7 +79,7 @@ tr:hover{background: #f1f5f9;}
 
   <div id="results-wrap" class="results-area card">
     <div class="card-hd" style="background:var(--green); display:flex; justify-content:space-between; align-items:center;">
-      <span>Comparison Results (New Orders Only)</span>
+      <span>Comparison Results</span>
       <button class="btn btn-gray" style="padding:5px 10px; font-size:10px;" onclick="copyUnified()">Copy Unified IDs</button>
     </div>
     <div class="tbl-wrap">
@@ -106,18 +106,19 @@ function handleDrop(e, type) {
   
   const reader = new FileReader();
   reader.onload = (event) => {
-    const workbook = XLSX.read(new Uint8Array(event.target.result), {type: 'array'});
+    const workbook = XLSX.read(new Uint8Array(event.target.result), {type: 'array', cellFormula: false, cellHTML: false});
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rawJson = XLSX.utils.sheet_to_json(sheet, { defval: "" });
     
-    const processed = processWithUnifiedColumn(rawJson);
+    // Aggressive parsing: Treat everything as raw data to prevent skipping "empty" rows
+    const rawJson = XLSX.utils.sheet_to_json(sheet, { defval: "", blankrows: true, raw: true });
+    
+    const processed = processRows(rawJson);
 
     if (type === 'old') {
       store.oldIds = new Set(processed.map(r => r["Unified ID"]).filter(id => id !== ""));
     } else {
       store.newRows = processed;
       if (rawJson.length > 0) {
-          // Identify the original order of columns and insert "Unified ID" after the Order column
           let cols = Object.keys(rawJson[0]);
           let ordIdx = cols.findIndex(k => k.toLowerCase().includes("order #") || k.toLowerCase() === "ord");
           if (ordIdx !== -1) {
@@ -132,21 +133,32 @@ function handleDrop(e, type) {
   reader.readAsArrayBuffer(file);
 }
 
-function processWithUnifiedColumn(rows) {
+function processRows(rows) {
   let lastKnownOrd = "";
+  let lastKnownCust = "";
+  let lastKnownDate = "";
 
-  return rows.filter(row => Object.values(row).some(v => v !== "")).map(row => {
+  return rows.filter(row => {
+    // Keep rows that have at least ONE value (like Item # or Description)
+    return Object.values(row).some(v => String(v).trim() !== "");
+  }).map(row => {
     let ordKey = Object.keys(row).find(k => k.toLowerCase().includes("order #") || k.toLowerCase() === "ord") || "Order #";
-    let valOrd = String(row[ordKey] || "").trim();
+    let custKey = Object.keys(row).find(k => k.toLowerCase().includes("customer")) || "Customer";
+    let dateKey = Object.keys(row).find(k => k.toLowerCase().includes("date")) || "Ship Date";
 
-    // Fill-down logic: If blank, use the last captured ID
-    if (valOrd !== "") {
-        lastKnownOrd = valOrd;
-    }
+    let valOrd = String(row[ordKey] || "").trim();
+    let valCust = String(row[custKey] || "").trim();
+    let valDate = String(row[dateKey] || "").trim();
+
+    if (valOrd !== "") lastKnownOrd = valOrd;
+    if (valCust !== "") lastKnownCust = valCust;
+    if (valDate !== "") lastKnownDate = valDate;
 
     return {
         ...row,
-        "Unified ID": lastKnownOrd
+        "Unified ID": lastKnownOrd,
+        [custKey]: lastKnownCust,
+        [dateKey]: lastKnownDate
     };
   });
 }
@@ -159,10 +171,8 @@ function runComparison() {
 
   const thead = document.getElementById('res-thead');
   const tbody = document.getElementById('res-tbody');
-  thead.innerHTML = '';
-  tbody.innerHTML = '';
+  thead.innerHTML = ''; tbody.innerHTML = '';
 
-  // Headers
   const trH = document.createElement('tr');
   store.columns.forEach(col => {
     const th = document.createElement('th');
@@ -171,18 +181,14 @@ function runComparison() {
   });
   thead.appendChild(trH);
 
-  // Rows
   store.newRows.forEach(row => {
-    // Only show if the Unified ID (the parent) is missing from the baseline
     if (row["Unified ID"] && !store.oldIds.has(row["Unified ID"])) {
       const tr = document.createElement('tr');
       store.columns.forEach(col => {
         const td = document.createElement('td');
         td.innerText = row[col] || "";
-        
         if (col === "Unified ID") td.className = "unified-col";
         if (col.toLowerCase().includes("order #") || col.toLowerCase() === "ord") td.className = "ord-font";
-        
         tr.appendChild(td);
       });
       tbody.appendChild(tr);
@@ -196,9 +202,8 @@ function copyUnified() {
   const ids = [...new Set(Array.from(document.querySelectorAll('.unified-col')).map(td => td.innerText))];
   if (ids.length === 0) return;
   navigator.clipboard.writeText(ids.join('\n'));
-  alert("Unique Unified IDs copied to clipboard.");
+  alert("Copied to clipboard.");
 }
 </script>
-
 </body>
 </html>
