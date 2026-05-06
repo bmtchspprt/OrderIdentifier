@@ -47,7 +47,7 @@ td{padding:8px 10px; border-bottom:1px solid var(--border); font-size:11px;}
   <div class="logo-mark">BINMASTER</div>
   <div class="title-area">
     <h1>Comprehensive ORD Delta</h1>
-    <div style="font-size:10px; color:var(--text-m)">Unified ID Auditor</div>
+    <div style="font-size:10px; color:var(--text-m)">Fixed Multi-Anchor Logic</div>
   </div>
 </div>
 
@@ -55,10 +55,8 @@ td{padding:8px 10px; border-bottom:1px solid var(--border); font-size:11px;}
   <div class="drop-grid">
     <div class="card">
       <div class="card-hd">Step 1: Baseline (Older Export)</div>
-      <div class="drop-zone" id="dz-old" 
-           onclick="document.getElementById('in-old').click()"
-           ondragover="hDrag(event)" ondragleave="hLeave(event)" ondrop="hDrop(event, 'old')">
-        <strong>Drag Baseline File Here</strong><br>or Click to Select
+      <div class="drop-zone" id="dz-old" onclick="document.getElementById('in-old').click()" ondragover="hDrag(event)" ondrop="hDrop(event, 'old')">
+        <strong>Baseline File</strong><br>Click or Drop
         <input type="file" id="in-old" hidden onchange="hInput(this, 'old')">
         <div id="name-old" style="margin-top:10px; color:var(--blue); font-weight:bold;"></div>
       </div>
@@ -66,10 +64,8 @@ td{padding:8px 10px; border-bottom:1px solid var(--border); font-size:11px;}
 
     <div class="card">
       <div class="card-hd">Step 2: Current (Newer Export)</div>
-      <div class="drop-zone" id="dz-new" 
-           onclick="document.getElementById('in-new').click()"
-           ondragover="hDrag(event)" ondragleave="hLeave(event)" ondrop="hDrop(event, 'new')">
-        <strong>Drag Current File Here</strong><br>or Click to Select
+      <div class="drop-zone" id="dz-new" onclick="document.getElementById('in-new').click()" ondragover="hDrag(event)" ondrop="hDrop(event, 'new')">
+        <strong>Current File</strong><br>Click or Drop
         <input type="file" id="in-new" hidden onchange="hInput(this, 'new')">
         <div id="name-new" style="margin-top:10px; color:var(--blue); font-weight:bold;"></div>
       </div>
@@ -77,8 +73,8 @@ td{padding:8px 10px; border-bottom:1px solid var(--border); font-size:11px;}
   </div>
 
   <div class="btn-row">
-    <button class="btn btn-gray" onclick="showPreview()">1. Preview Unified IDs</button>
-    <button class="btn btn-red" onclick="runComparison()">2. Run Delta Comparison</button>
+    <button class="btn btn-gray" onclick="showPreview()">1. Audit Unified IDs</button>
+    <button class="btn btn-red" onclick="runComparison()">2. Show New Orders</button>
   </div>
 
   <div id="out-card" class="card" style="display:none;">
@@ -92,18 +88,11 @@ td{padding:8px 10px; border-bottom:1px solid var(--border); font-size:11px;}
 <script>
 let store = { oldIds: new Set(), newRows: [], columns: [] };
 
-// Handlers for Drop/Input
-function hDrag(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
-function hLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+function hDrag(e) { e.preventDefault(); }
 function hInput(el, type) { if(el.files[0]) processFile(el.files[0], type); }
-function hDrop(e, type) { 
-    e.preventDefault(); 
-    e.currentTarget.classList.remove('drag-over');
-    if(e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0], type); 
-}
+function hDrop(e, type) { e.preventDefault(); if(e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0], type); }
 
 function processFile(file, type) {
-    document.getElementById(`name-${type}`).innerText = "Loading: " + file.name;
     const reader = new FileReader();
     reader.onload = (e) => {
         const wb = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
@@ -126,7 +115,7 @@ function processFile(file, type) {
 }
 
 function cleanData(rows) {
-    let lastID = "", lastCust = "";
+    let lastID = "";
     return rows.filter(r => Object.values(r).some(v => String(v).trim() !== "")).map(row => {
         let oK = Object.keys(row).find(k => k.toLowerCase().includes("order #") || k.toLowerCase() === "ord") || "Order #";
         let cK = Object.keys(row).find(k => k.toLowerCase().includes("customer")) || "Customer";
@@ -134,20 +123,21 @@ function cleanData(rows) {
         let vO = String(row[oK] || "").trim();
         let vC = String(row[cK] || "").trim();
 
-        if (vO !== "") lastID = vO;
-        if (vC !== "") lastCust = vC;
+        // FIX: Only update the anchor if we have BOTH a new Order # AND a new Customer name.
+        // This prevents a part-only row with a misaligned order # from breaking the parent link.
+        if (vO !== "" && vC !== "") {
+            lastID = vO;
+        }
 
-        return { ...row, "Unified ID": lastID, [cK]: lastCust };
+        return { ...row, "Unified ID": lastID };
     });
 }
 
 function render(dataRows, title, highlightDelta) {
     const card = document.getElementById('out-card');
-    const hd = document.getElementById('out-hd');
     const thead = document.querySelector('#main-table thead');
     const tbody = document.querySelector('#main-table tbody');
-    
-    hd.innerText = title;
+    document.getElementById('out-hd').innerText = title;
     thead.innerHTML = ''; tbody.innerHTML = '';
 
     const trH = document.createElement('tr');
@@ -170,15 +160,8 @@ function render(dataRows, title, highlightDelta) {
     card.style.display = 'block';
 }
 
-function showPreview() {
-    if(store.newRows.length === 0) return alert("Upload 'Current' file first.");
-    render(store.newRows, "Full Audit: Checking Unified ID Fill-Down", false);
-}
-
-function runComparison() {
-    if(store.oldIds.size === 0 || store.newRows.length === 0) return alert("Upload both files.");
-    render(store.newRows, "Delta Results: New Orders Only", true);
-}
+function showPreview() { render(store.newRows, "Full Audit", false); }
+function runComparison() { render(store.newRows, "New Orders Only", true); }
 </script>
 </body>
 </html>
