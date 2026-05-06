@@ -14,9 +14,9 @@
 }
 body{font-family: Arial, sans-serif; background:var(--bg); color:var(--text); margin:0; padding:20px; font-size:12px;}
 
-/* Branding Update */
+/* Branding: All Red, Arial Bold Style */
 .header{max-width:1400px; margin:0 auto 20px; display:flex; align-items:center; gap:15px;}
-.logo-mark{font-size:32px; font-weight:900; font-style:italic; letter-spacing:-1.5px; color: var(--red); text-transform: none;}
+.logo-mark{font-size:32px; font-weight:900; font-style:italic; letter-spacing:-1.5px; color: var(--red); font-family: Arial, sans-serif;}
 .title-area h1{font-size:18px; margin:0; text-transform:uppercase; font-weight: 800; color: var(--nav);}
 
 .wrap{max-width:1400px; margin:0 auto; display:grid; gap:20px;}
@@ -30,7 +30,7 @@ body{font-family: Arial, sans-serif; background:var(--bg); color:var(--text); ma
 .file-name{margin-top:10px; color:var(--blue); font-weight:700;}
 
 .results-area{display:none; margin-top:10px;}
-.tbl-wrap{overflow-x:auto; max-height: 600px;}
+.tbl-wrap{overflow-x:auto; max-height: 700px;}
 table{width:100%; border-collapse:collapse; white-space:nowrap;}
 th{background:#f0f2f5; text-align:left; padding:10px; font-size:10px; text-transform:uppercase; border-bottom:2px solid var(--border); position:sticky; top:0; z-index: 10;}
 td{padding:8px 10px; border-bottom:1px solid var(--border); font-size:11px;}
@@ -57,7 +57,7 @@ tr:hover{background: #f1f5f9;}
 <div class="wrap">
   <div class="drop-grid">
     <div class="card">
-      <div class="card-hd">Step 1: Baseline (Older)</div>
+      <div class="card-hd">Step 1: Baseline (Older Export)</div>
       <div id="dz-old" class="drop-zone" ondrop="handleDrop(event, 'old')" ondragover="handleDrag(event)">
         <strong>Drop OLD Spreadsheet</strong>
         <div id="name-old" class="file-name"></div>
@@ -65,7 +65,7 @@ tr:hover{background: #f1f5f9;}
     </div>
 
     <div class="card">
-      <div class="card-hd">Step 2: Current (Newer)</div>
+      <div class="card-hd">Step 2: Current (Newer Export)</div>
       <div id="dz-new" class="drop-zone" ondrop="handleDrop(event, 'new')" ondragover="handleDrag(event)">
         <strong>Drop NEW Spreadsheet</strong>
         <div id="name-new" class="file-name"></div>
@@ -109,56 +109,56 @@ function handleDrop(e, type) {
   reader.onload = (event) => {
     const workbook = XLSX.read(new Uint8Array(event.target.result), {type: 'array'});
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const json = XLSX.utils.sheet_to_json(sheet, {defval: ""});
-
-    const processed = processRows(json);
+    
+    // We use sheet_to_json with defval to ensure every row has every key
+    const rawJson = XLSX.utils.sheet_to_json(sheet, {defval: ""});
+    const processed = processRows(rawJson);
 
     if (type === 'old') {
       store.oldIds = new Set(processed.map(r => r._ordId));
     } else {
       store.newRows = processed;
-      if (json.length > 0) store.columns = Object.keys(json[0]);
+      // Get columns from the first row to preserve order
+      if (rawJson.length > 0) store.columns = Object.keys(rawJson[0]);
     }
   };
   reader.readAsArrayBuffer(file);
 }
 
-/** * Logic to fill down ORD numbers and Customers 
- * so that multi-item orders are grouped correctly.
- */
 function processRows(rows) {
   let lastOrd = "";
   let lastCust = "";
   let lastDate = "";
 
   return rows.map(row => {
-    // Detect column names dynamically
-    let ordKey = Object.keys(row).find(k => k.toLowerCase().includes("order") || k.toLowerCase() === "ord") || "Order #";
-    let custKey = Object.keys(row).find(k => k.toLowerCase().includes("customer")) || "Customer";
-    let dateKey = Object.keys(row).find(k => k.toLowerCase().includes("date")) || "Ship Date";
+    // Identify keys specifically for the baseline comparison
+    let ordKey = Object.keys(row).find(k => k.trim().toLowerCase().includes("order") || k.trim().toLowerCase() === "ord") || "Order #";
+    let custKey = Object.keys(row).find(k => k.trim().toLowerCase().includes("customer")) || "Customer";
+    let dateKey = Object.keys(row).find(k => k.trim().toLowerCase().includes("date")) || "Ship Date";
 
-    let currentOrd = String(row[ordKey] || "").trim();
-    let currentCust = String(row[custKey] || "").trim();
-    let currentDate = String(row[dateKey] || "").trim();
+    let valOrd = String(row[ordKey] || "").trim();
+    let valCust = String(row[custKey] || "").trim();
+    let valDate = String(row[dateKey] || "").trim();
 
-    // If this row has a new ORD, update our "last seen" memory
-    if (currentOrd) lastOrd = currentOrd;
-    if (currentCust) lastCust = currentCust;
-    if (currentDate) lastDate = currentDate;
+    // If this row has a value, update the "carry-over" memory
+    if (valOrd !== "") lastOrd = valOrd;
+    if (valCust !== "") lastCust = valCust;
+    if (valDate !== "") lastDate = valDate;
 
-    return {
-      ...row,
-      "_ordId": lastOrd, // This is what we use for the diff logic
-      [ordKey]: lastOrd,  // Fill visually
-      [custKey]: lastCust, // Fill visually
-      [dateKey]: lastDate  // Fill visually
-    };
+    // Build the processed row
+    let newRow = { ...row };
+    newRow._ordId = lastOrd; // Internal key for comparison
+    newRow[ordKey] = lastOrd; // Fill visual blank for user
+    newRow[custKey] = lastCust; // Fill visual blank for user
+    newRow[dateKey] = lastDate; // Fill visual blank for user
+
+    return newRow;
   });
 }
 
 function runComparison() {
   if (store.oldIds.size === 0 || store.newRows.length === 0) {
-    alert("Please upload both Baseline and Current spreadsheets.");
+    alert("Please upload both files first.");
     return;
   }
 
@@ -167,7 +167,7 @@ function runComparison() {
   thead.innerHTML = '';
   tbody.innerHTML = '';
 
-  // Create Headers
+  // Headers
   const trH = document.createElement('tr');
   store.columns.forEach(col => {
     const th = document.createElement('th');
@@ -176,20 +176,20 @@ function runComparison() {
   });
   thead.appendChild(trH);
 
-  // Filter and Create Rows
-  let count = 0;
+  // Rows
+  let foundCount = 0;
   store.newRows.forEach(row => {
-    // Only show rows where the ORD was NOT in the old baseline
+    // Logic: If the 'last known' ORD for this row wasn't in the old file
     if (row._ordId && !store.oldIds.has(row._ordId)) {
-      count++;
+      foundCount++;
       const tr = document.createElement('tr');
       store.columns.forEach(col => {
         const td = document.createElement('td');
         const val = row[col] || "";
         td.innerText = val;
-        // Make the Order # red and bold
-        if (col.toLowerCase().includes("order") || col.toLowerCase() === "ord") {
-            td.className = "ord-font";
+        // Apply red styling to the ORD column
+        if (col.trim().toLowerCase().includes("order") || col.trim().toLowerCase() === "ord") {
+          td.className = "ord-font";
         }
         tr.appendChild(td);
       });
@@ -198,14 +198,14 @@ function runComparison() {
   });
 
   document.getElementById('results-wrap').style.display = 'block';
-  if (count === 0) alert("No new orders found between these two files.");
+  if (foundCount === 0) alert("No new orders found.");
 }
 
 function copyOrds() {
   const ords = [...new Set(Array.from(document.querySelectorAll('.ord-font')).map(td => td.innerText))];
   if (ords.length === 0) return;
   navigator.clipboard.writeText(ords.join('\n'));
-  alert(`${ords.length} Unique Order Numbers copied to clipboard.`);
+  alert(`${ords.length} unique new ORD numbers copied.`);
 }
 </script>
 
