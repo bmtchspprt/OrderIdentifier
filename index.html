@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BinMaster | ORD Comparison Tool</title>
+<title>BINMASTER | ORD Comparison Tool</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <style>
 :root{
@@ -12,11 +12,11 @@
   --white: #FFFFFF; --border: #D2D8E0; --blue: #0060A8;
   --green: #1B6B2F; --r: 4px; --sh: 0 2px 8px rgba(0,0,0,.11);
 }
-body{font-family: Arial, sans-serif; background:var(--bg); color:var(--text); margin:0; padding:20px; font-size:12px;}
+body{font-family: Arial, Helvetica, sans-serif; background:var(--bg); color:var(--text); margin:0; padding:20px; font-size:12px;}
 
-/* Branding: All Red, Arial Bold Style */
+/* Header Branding: ALL CAPS, ALL RED, ARIAL BOLD */
 .header{max-width:1400px; margin:0 auto 20px; display:flex; align-items:center; gap:15px;}
-.logo-mark{font-size:32px; font-weight:900; font-style:italic; letter-spacing:-1.5px; color: var(--red); font-family: Arial, sans-serif;}
+.logo-mark{font-size:32px; font-weight:900; font-style:italic; letter-spacing:-1px; color: var(--red); font-family: Arial, sans-serif; text-transform: uppercase;}
 .title-area h1{font-size:18px; margin:0; text-transform:uppercase; font-weight: 800; color: var(--nav);}
 
 .wrap{max-width:1400px; margin:0 auto; display:grid; gap:20px;}
@@ -30,7 +30,7 @@ body{font-family: Arial, sans-serif; background:var(--bg); color:var(--text); ma
 .file-name{margin-top:10px; color:var(--blue); font-weight:700;}
 
 .results-area{display:none; margin-top:10px;}
-.tbl-wrap{overflow-x:auto; max-height: 700px;}
+.tbl-wrap{overflow-x:auto; max-height: 750px;}
 table{width:100%; border-collapse:collapse; white-space:nowrap;}
 th{background:#f0f2f5; text-align:left; padding:10px; font-size:10px; text-transform:uppercase; border-bottom:2px solid var(--border); position:sticky; top:0; z-index: 10;}
 td{padding:8px 10px; border-bottom:1px solid var(--border); font-size:11px;}
@@ -47,7 +47,7 @@ tr:hover{background: #f1f5f9;}
 <body>
 
 <div class="header">
-  <div class="logo-mark">BinMaster</div>
+  <div class="logo-mark">BINMASTER</div>
   <div class="title-area">
     <h1>Comprehensive ORD Delta</h1>
     <div style="font-size:10px; color:var(--text-m)">Full line-item breakdown for new orders</div>
@@ -108,18 +108,22 @@ function handleDrop(e, type) {
   const reader = new FileReader();
   reader.onload = (event) => {
     const workbook = XLSX.read(new Uint8Array(event.target.result), {type: 'array'});
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
     
-    // We use sheet_to_json with defval to ensure every row has every key
-    const rawJson = XLSX.utils.sheet_to_json(sheet, {defval: ""});
+    // Convert to JSON with specific flags to ensure empty cells are handled as empty strings, not skipped
+    const rawJson = XLSX.utils.sheet_to_json(sheet, { defval: "", blankrows: true });
+    
     const processed = processRows(rawJson);
 
     if (type === 'old') {
-      store.oldIds = new Set(processed.map(r => r._ordId));
+      store.oldIds = new Set(processed.map(r => r._ordId).filter(id => id !== ""));
     } else {
       store.newRows = processed;
-      // Get columns from the first row to preserve order
-      if (rawJson.length > 0) store.columns = Object.keys(rawJson[0]);
+      if (rawJson.length > 0) {
+        // Use keys from the first row to establish column order
+        store.columns = Object.keys(rawJson[0]);
+      }
     }
   };
   reader.readAsArrayBuffer(file);
@@ -130,27 +134,32 @@ function processRows(rows) {
   let lastCust = "";
   let lastDate = "";
 
-  return rows.map(row => {
-    // Identify keys specifically for the baseline comparison
-    let ordKey = Object.keys(row).find(k => k.trim().toLowerCase().includes("order") || k.trim().toLowerCase() === "ord") || "Order #";
-    let custKey = Object.keys(row).find(k => k.trim().toLowerCase().includes("customer")) || "Customer";
-    let dateKey = Object.keys(row).find(k => k.trim().toLowerCase().includes("date")) || "Ship Date";
+  // Filter out completely empty rows that sometimes appear at the end of exports
+  return rows.filter(row => Object.values(row).some(v => v !== "")).map(row => {
+    // Dynamic key finding to handle minor naming variations in exports
+    let ordKey = Object.keys(row).find(k => {
+      let lk = k.toLowerCase().trim();
+      return lk === "ord" || lk.includes("order #") || lk === "order";
+    }) || "Order #";
+    
+    let custKey = Object.keys(row).find(k => k.toLowerCase().includes("customer")) || "Customer";
+    let dateKey = Object.keys(row).find(k => k.toLowerCase().includes("date")) || "Ship Date";
 
     let valOrd = String(row[ordKey] || "").trim();
     let valCust = String(row[custKey] || "").trim();
     let valDate = String(row[dateKey] || "").trim();
 
-    // If this row has a value, update the "carry-over" memory
+    // If a value exists, it's the start of a new grouping. Update our memory.
     if (valOrd !== "") lastOrd = valOrd;
     if (valCust !== "") lastCust = valCust;
     if (valDate !== "") lastDate = valDate;
 
-    // Build the processed row
+    // Create the grouped row data
     let newRow = { ...row };
-    newRow._ordId = lastOrd; // Internal key for comparison
-    newRow[ordKey] = lastOrd; // Fill visual blank for user
-    newRow[custKey] = lastCust; // Fill visual blank for user
-    newRow[dateKey] = lastDate; // Fill visual blank for user
+    newRow._ordId = lastOrd; 
+    newRow[ordKey] = lastOrd; 
+    newRow[custKey] = lastCust;
+    newRow[dateKey] = lastDate;
 
     return newRow;
   });
@@ -158,7 +167,7 @@ function processRows(rows) {
 
 function runComparison() {
   if (store.oldIds.size === 0 || store.newRows.length === 0) {
-    alert("Please upload both files first.");
+    alert("Load both baseline and current spreadsheets first.");
     return;
   }
 
@@ -167,7 +176,6 @@ function runComparison() {
   thead.innerHTML = '';
   tbody.innerHTML = '';
 
-  // Headers
   const trH = document.createElement('tr');
   store.columns.forEach(col => {
     const th = document.createElement('th');
@@ -176,19 +184,20 @@ function runComparison() {
   });
   thead.appendChild(trH);
 
-  // Rows
-  let foundCount = 0;
+  let newItemsFound = 0;
   store.newRows.forEach(row => {
-    // Logic: If the 'last known' ORD for this row wasn't in the old file
+    // Only display if the Parent ORD ID was not present in the old baseline file
     if (row._ordId && !store.oldIds.has(row._ordId)) {
-      foundCount++;
+      newItemsFound++;
       const tr = document.createElement('tr');
       store.columns.forEach(col => {
         const td = document.createElement('td');
         const val = row[col] || "";
         td.innerText = val;
-        // Apply red styling to the ORD column
-        if (col.trim().toLowerCase().includes("order") || col.trim().toLowerCase() === "ord") {
+        
+        // Highlight ORD column in red bold
+        let lCol = col.toLowerCase().trim();
+        if (lCol === "ord" || lCol.includes("order #") || lCol === "order") {
           td.className = "ord-font";
         }
         tr.appendChild(td);
@@ -198,14 +207,14 @@ function runComparison() {
   });
 
   document.getElementById('results-wrap').style.display = 'block';
-  if (foundCount === 0) alert("No new orders found.");
+  if (newItemsFound === 0) alert("No differences found. All orders in the new file exist in the baseline.");
 }
 
 function copyOrds() {
   const ords = [...new Set(Array.from(document.querySelectorAll('.ord-font')).map(td => td.innerText))];
   if (ords.length === 0) return;
   navigator.clipboard.writeText(ords.join('\n'));
-  alert(`${ords.length} unique new ORD numbers copied.`);
+  alert(`${ords.length} unique ORD numbers copied to clipboard.`);
 }
 </script>
 
