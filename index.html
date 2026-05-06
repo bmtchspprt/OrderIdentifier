@@ -12,41 +12,41 @@
   --white: #FFFFFF; --border: #D2D8E0; --blue: #0060A8;
   --green: #1B6B2F; --r: 5px; --sh: 0 2px 8px rgba(0,0,0,.11);
 }
-body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);margin:0;padding:20px;font-size:12px;}
+body{font-family: Arial, Helvetica, sans-serif; background:var(--bg); color:var(--text); margin:0; padding:20px; font-size:12px;}
 
-.header{max-width:1400px;margin:0 auto 20px;display:flex;align-items:center;gap:15px;}
-.logo-mark{font-size:28px;font-weight:900;font-style:italic;letter-spacing:-.5px;}
-.logo-mark .r{color:var(--red);}
-.title-area h1{font-size:18px;margin:0;text-transform:uppercase;}
+/* Header Branding Update */
+.header{max-width:1400px; margin:0 auto 20px; display:flex; align-items:center; gap:15px;}
+.logo-mark{font-size:32px; font-weight:900; font-style:italic; letter-spacing:-1px; color: var(--red); font-family: Arial, sans-serif;}
+.title-area h1{font-size:18px; margin:0; text-transform:uppercase; font-weight: 800;}
 
-.wrap{max-width:1400px;margin:0 auto;display:grid;gap:20px;}
-.drop-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+.wrap{max-width:1400px; margin:0 auto; display:grid; gap:20px;}
+.drop-grid{display:grid; grid-template-columns: 1fr 1fr; gap:20px;}
 
-.card{background:var(--white);border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--sh);overflow:hidden;}
-.card-hd{background:var(--nav);color:var(--white);padding:10px 15px;font-size:11px;font-weight:700;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;}
+.card{background:var(--white); border-radius:var(--r); border:1px solid var(--border); box-shadow:var(--sh); overflow:hidden;}
+.card-hd{background:var(--nav); color:var(--white); padding:10px 15px; font-size:11px; font-weight:700; text-transform:uppercase; display:flex; justify-content:space-between; align-items:center;}
 
-.drop-zone{padding:30px 20px;text-align:center;border:2px dashed var(--border);margin:15px;border-radius:var(--r);transition:0.2s;cursor:pointer;background:#FAFBFF;}
-.drop-zone.drag-over{border-color:var(--red);background:var(--red-lt);}
-.file-name{margin-top:10px;color:var(--blue);font-weight:700;}
+.drop-zone{padding:30px 20px; text-align:center; border:2px dashed var(--border); margin:15px; border-radius:var(--r); transition:0.2s; cursor:pointer; background:#FAFBFF;}
+.drop-zone.drag-over{border-color:var(--red); background:var(--red-lt);}
+.file-name{margin-top:10px; color:var(--blue); font-weight:700;}
 
 .results-area{display:none; margin-top:10px;}
 .tbl-wrap{overflow-x:auto;}
-table{width:100%;border-collapse:collapse;white-space:nowrap;}
-th{background:#f0f2f5;text-align:left;padding:8px 10px;font-size:10px;text-transform:uppercase;border-bottom:2px solid var(--border);position:sticky;top:0;}
-td{padding:8px 10px;border-bottom:1px solid var(--border);font-size:11px;}
+table{width:100%; border-collapse:collapse; white-space:nowrap;}
+th{background:#f0f2f5; text-align:left; padding:8px 10px; font-size:10px; text-transform:uppercase; border-bottom:2px solid var(--border); position:sticky; top:0;}
+td{padding:8px 10px; border-bottom:1px solid var(--border); font-size:11px;}
 tr:nth-child(even){background:#fafafa;}
-.ord-font{font-family:monospace;font-weight:700;color:var(--red);}
+.ord-font{font-family: Arial, sans-serif; font-weight:700; color:var(--red);}
 
-.btn{padding:10px 20px;border-radius:var(--r);border:none;cursor:pointer;font-weight:700;transition:0.2s;font-size:12px;}
-.btn-red{background:var(--red);color:white;}
-.btn-gray{background:var(--bg);border:1px solid var(--border);color:var(--text-m);}
+.btn{padding:10px 20px; border-radius:var(--r); border:none; cursor:pointer; font-weight:700; transition:0.2s; font-size:12px;}
+.btn-red{background:var(--red); color:white;}
+.btn-gray{background:var(--bg); border:1px solid var(--border); color:var(--text-m);}
 .btn-sm{padding:4px 8px; font-size:10px;}
 </style>
 </head>
 <body>
 
 <div class="header">
-  <div class="logo-mark"><span class="r">Bin</span><span>Master</span></div>
+  <div class="logo-mark">BinMaster</div>
   <div class="title-area">
     <h1>Comprehensive ORD Delta</h1>
     <div style="font-size:10px; color:var(--text-m)">Full line-item breakdown for new orders</div>
@@ -108,7 +108,6 @@ function handleDrop(e, type) {
   reader.onload = (event) => {
     const workbook = XLSX.read(new Uint8Array(event.target.result), {type: 'array'});
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    // Use raw:false to get formatted strings for ORDs
     const json = XLSX.utils.sheet_to_json(sheet, {defval: ""});
 
     const processed = processRows(json);
@@ -117,24 +116,26 @@ function handleDrop(e, type) {
       store.oldIds = new Set(processed.map(r => r._ordId));
     } else {
       store.newRows = processed;
-      // Capture all column headers from the first row of the new file
       if (json.length > 0) store.columns = Object.keys(json[0]);
     }
   };
   reader.readAsArrayBuffer(file);
 }
 
-// Fills down values for merged-look cells (ORD and Customer)
 function processRows(rows) {
   let lastOrd = "";
   let lastCust = "";
   let lastDate = "";
 
   return rows.map(row => {
-    // Look for ORD columns
-    let currentOrd = (row["Order #"] || row["ORD"] || row["Order"] || "").toString().trim();
-    let currentCust = (row["Customer"] || "").toString().trim();
-    let currentDate = (row["Ship Date"] || "").toString().trim();
+    // Dynamic column detection for common names found in images
+    let ordKey = Object.keys(row).find(k => k.toLowerCase().includes("order") || k.toLowerCase() === "ord") || "Order #";
+    let custKey = Object.keys(row).find(k => k.toLowerCase().includes("customer")) || "Customer";
+    let dateKey = Object.keys(row).find(k => k.toLowerCase().includes("date")) || "Ship Date";
+
+    let currentOrd = (row[ordKey] || "").toString().trim();
+    let currentCust = (row[custKey] || "").toString().trim();
+    let currentDate = (row[dateKey] || "").toString().trim();
 
     if (currentOrd) lastOrd = currentOrd;
     if (currentCust) lastCust = currentCust;
@@ -143,9 +144,9 @@ function processRows(rows) {
     return {
       ...row,
       "_ordId": lastOrd,
-      "Order #": lastOrd,     // Normalize for display
-      "Customer": lastCust,   // Normalize for display
-      "Ship Date": lastDate   // Normalize for display
+      [ordKey]: lastOrd,
+      [custKey]: lastCust,
+      [dateKey]: lastDate
     };
   });
 }
@@ -161,7 +162,6 @@ function runComparison() {
   thead.innerHTML = '';
   tbody.innerHTML = '';
 
-  // Build Headers
   const trH = document.createElement('tr');
   store.columns.forEach(col => {
     const th = document.createElement('th');
@@ -170,7 +170,6 @@ function runComparison() {
   });
   thead.appendChild(trH);
 
-  // Build Rows
   let count = 0;
   store.newRows.forEach(row => {
     if (row._ordId && !store.oldIds.has(row._ordId)) {
@@ -180,7 +179,7 @@ function runComparison() {
         const td = document.createElement('td');
         const val = row[col] || "";
         td.innerText = val;
-        if (col === "Order #" || col === "ORD") td.className = "ord-font";
+        if (col.toLowerCase().includes("order") || col.toLowerCase() === "ord") td.className = "ord-font";
         tr.appendChild(td);
       });
       tbody.appendChild(tr);
