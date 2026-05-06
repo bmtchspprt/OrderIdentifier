@@ -14,9 +14,9 @@
 }
 body{font-family: Arial, Helvetica, sans-serif; background:var(--bg); color:var(--text); margin:0; padding:20px; font-size:12px;}
 
-/* Header Branding: ALL CAPS, ALL RED, ARIAL BOLD */
+/* Branding: ALL CAPS, ALL RED, ARIAL BOLD STYLE */
 .header{max-width:1400px; margin:0 auto 20px; display:flex; align-items:center; gap:15px;}
-.logo-mark{font-size:32px; font-weight:900; font-style:italic; letter-spacing:-1px; color: var(--red); font-family: Arial, sans-serif; text-transform: uppercase;}
+.logo-mark{font-size:32px; font-weight:900; font-style:italic; letter-spacing:-1.5px; color: var(--red); font-family: Arial, sans-serif; text-transform: uppercase;}
 .title-area h1{font-size:18px; margin:0; text-transform:uppercase; font-weight: 800; color: var(--nav);}
 
 .wrap{max-width:1400px; margin:0 auto; display:grid; gap:20px;}
@@ -108,22 +108,17 @@ function handleDrop(e, type) {
   const reader = new FileReader();
   reader.onload = (event) => {
     const workbook = XLSX.read(new Uint8Array(event.target.result), {type: 'array'});
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
     
-    // Convert to JSON with specific flags to ensure empty cells are handled as empty strings, not skipped
-    const rawJson = XLSX.utils.sheet_to_json(sheet, { defval: "", blankrows: true });
-    
+    // defval: "" ensures every cell has a value so rows aren't skipped
+    const rawJson = XLSX.utils.sheet_to_json(sheet, { defval: "" });
     const processed = processRows(rawJson);
 
     if (type === 'old') {
       store.oldIds = new Set(processed.map(r => r._ordId).filter(id => id !== ""));
     } else {
       store.newRows = processed;
-      if (rawJson.length > 0) {
-        // Use keys from the first row to establish column order
-        store.columns = Object.keys(rawJson[0]);
-      }
+      if (rawJson.length > 0) store.columns = Object.keys(rawJson[0]);
     }
   };
   reader.readAsArrayBuffer(file);
@@ -134,9 +129,8 @@ function processRows(rows) {
   let lastCust = "";
   let lastDate = "";
 
-  // Filter out completely empty rows that sometimes appear at the end of exports
-  return rows.filter(row => Object.values(row).some(v => v !== "")).map(row => {
-    // Dynamic key finding to handle minor naming variations in exports
+  return rows.map(row => {
+    // Dynamic key identification for Order/Customer/Date
     let ordKey = Object.keys(row).find(k => {
       let lk = k.toLowerCase().trim();
       return lk === "ord" || lk.includes("order #") || lk === "order";
@@ -149,17 +143,17 @@ function processRows(rows) {
     let valCust = String(row[custKey] || "").trim();
     let valDate = String(row[dateKey] || "").trim();
 
-    // If a value exists, it's the start of a new grouping. Update our memory.
+    // If row has a new Order Number, update our memory. 
+    // If blank, it uses the "lastOrd" (carrying over Dave Z for both rows).
     if (valOrd !== "") lastOrd = valOrd;
     if (valCust !== "") lastCust = valCust;
     if (valDate !== "") lastDate = valDate;
 
-    // Create the grouped row data
     let newRow = { ...row };
-    newRow._ordId = lastOrd; 
-    newRow[ordKey] = lastOrd; 
-    newRow[custKey] = lastCust;
-    newRow[dateKey] = lastDate;
+    newRow._ordId = lastOrd; // Internal comparison ID
+    newRow[ordKey] = lastOrd; // Display fix
+    newRow[custKey] = lastCust; // Display fix
+    newRow[dateKey] = lastDate; // Display fix
 
     return newRow;
   });
@@ -167,7 +161,7 @@ function processRows(rows) {
 
 function runComparison() {
   if (store.oldIds.size === 0 || store.newRows.length === 0) {
-    alert("Load both baseline and current spreadsheets first.");
+    alert("Please load both files first.");
     return;
   }
 
@@ -184,18 +178,17 @@ function runComparison() {
   });
   thead.appendChild(trH);
 
-  let newItemsFound = 0;
+  let matchFound = 0;
   store.newRows.forEach(row => {
-    // Only display if the Parent ORD ID was not present in the old baseline file
+    // Only show if the parent ORD number wasn't in the baseline file
     if (row._ordId && !store.oldIds.has(row._ordId)) {
-      newItemsFound++;
+      matchFound++;
       const tr = document.createElement('tr');
       store.columns.forEach(col => {
         const td = document.createElement('td');
         const val = row[col] || "";
         td.innerText = val;
         
-        // Highlight ORD column in red bold
         let lCol = col.toLowerCase().trim();
         if (lCol === "ord" || lCol.includes("order #") || lCol === "order") {
           td.className = "ord-font";
@@ -207,14 +200,14 @@ function runComparison() {
   });
 
   document.getElementById('results-wrap').style.display = 'block';
-  if (newItemsFound === 0) alert("No differences found. All orders in the new file exist in the baseline.");
+  if (matchFound === 0) alert("No new orders detected.");
 }
 
 function copyOrds() {
   const ords = [...new Set(Array.from(document.querySelectorAll('.ord-font')).map(td => td.innerText))];
   if (ords.length === 0) return;
   navigator.clipboard.writeText(ords.join('\n'));
-  alert(`${ords.length} unique ORD numbers copied to clipboard.`);
+  alert(`${ords.length} unique ORD numbers copied.`);
 }
 </script>
 
