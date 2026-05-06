@@ -12,7 +12,7 @@
   --white: #FFFFFF; --border: #D2D8E0; --blue: #0060A8;
   --green: #1B6B2F; --r: 4px; --sh: 0 2px 8px rgba(0,0,0,.11);
 }
-body{font-family: Arial, Helvetica, sans-serif; background:var(--bg); color:var(--text); margin:0; padding:20px; font-size:12px;}
+body{font-family: Arial, sans-serif; background:var(--bg); color:var(--text); margin:0; padding:20px; font-size:12px;}
 
 /* Branding: ALL CAPS, ALL RED, BOLD */
 .header{max-width:1400px; margin:0 auto 20px; display:flex; align-items:center; gap:15px;}
@@ -23,7 +23,7 @@ body{font-family: Arial, Helvetica, sans-serif; background:var(--bg); color:var(
 .drop-grid{display:grid; grid-template-columns: 1fr 1fr; gap:20px;}
 
 .card{background:var(--white); border-radius:var(--r); border:1px solid var(--border); box-shadow:var(--sh); overflow:hidden;}
-.card-hd{background:var(--nav); color:var(--white); padding:10px 15px; font-size:11px; font-weight:700; text-transform:uppercase; display:flex; justify-content:space-between; align-items:center;}
+.card-hd{background:var(--nav); color:var(--white); padding:10px 15px; font-size:11px; font-weight:700; text-transform:uppercase;}
 
 .drop-zone{padding:30px 20px; text-align:center; border:2px dashed var(--border); margin:15px; border-radius:var(--r); transition:0.2s; cursor:pointer; background:#FAFBFF;}
 .drop-zone.drag-over{border-color:var(--red); background: #fff1f1;}
@@ -37,6 +37,7 @@ td{padding:8px 10px; border-bottom:1px solid var(--border); font-size:11px;}
 tr:nth-child(even){background:#fafafa;}
 tr:hover{background: #f1f5f9;}
 .ord-font{font-weight:700; color:var(--red);}
+.unified-col{background: #fff8f8; font-weight: 700; color: var(--blue); border-left: 2px solid var(--border);}
 
 .btn{padding:10px 20px; border-radius:var(--r); border:none; cursor:pointer; font-weight:700; transition:0.2s; font-size:12px;}
 .btn-red{background:var(--red); color:white;}
@@ -49,7 +50,7 @@ tr:hover{background: #f1f5f9;}
   <div class="logo-mark">BINMASTER</div>
   <div class="title-area">
     <h1>Comprehensive ORD Delta</h1>
-    <div style="font-size:10px; color:var(--text-m)">Visual Anchor Logic: Capturing multi-line items</div>
+    <div style="font-size:10px; color:var(--text-m)">Unified ID Logic: Solving blank row association</div>
   </div>
 </div>
 
@@ -62,7 +63,6 @@ tr:hover{background: #f1f5f9;}
         <div id="name-old" class="file-name"></div>
       </div>
     </div>
-
     <div class="card">
       <div class="card-hd">Step 2: Current (Newer Export)</div>
       <div id="dz-new" class="drop-zone" ondrop="handleDrop(event, 'new')" ondragover="handleDrag(event)">
@@ -78,9 +78,9 @@ tr:hover{background: #f1f5f9;}
   </div>
 
   <div id="results-wrap" class="results-area card">
-    <div class="card-hd" style="background:var(--green);">
-      <span>Comparison Results</span>
-      <button class="btn btn-gray" style="padding:5px 10px; font-size:10px;" onclick="copyOrds()">Copy New ORDs</button>
+    <div class="card-hd" style="background:var(--green); display:flex; justify-content:space-between; align-items:center;">
+      <span>Comparison Results (New Orders Only)</span>
+      <button class="btn btn-gray" style="padding:5px 10px; font-size:10px;" onclick="copyUnified()">Copy Unified IDs</button>
     </div>
     <div class="tbl-wrap">
       <table id="res-table">
@@ -108,58 +108,52 @@ function handleDrop(e, type) {
   reader.onload = (event) => {
     const workbook = XLSX.read(new Uint8Array(event.target.result), {type: 'array'});
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rawJson = XLSX.utils.sheet_to_json(sheet, { defval: "" });
     
-    // Convert to JSON with forced empty string defaults to prevent skipping cells
-    const rawJson = XLSX.utils.sheet_to_json(sheet, { defval: "", blankrows: true });
-    const processed = processVisualRows(rawJson);
+    const processed = processWithUnifiedColumn(rawJson);
 
     if (type === 'old') {
-      // Map the baseline IDs
-      store.oldIds = new Set(processed.map(r => r._visualId).filter(id => id !== ""));
+      store.oldIds = new Set(processed.map(r => r["Unified ID"]).filter(id => id !== ""));
     } else {
       store.newRows = processed;
-      if (rawJson.length > 0) store.columns = Object.keys(rawJson[0]);
+      if (rawJson.length > 0) {
+          // Identify the original order of columns and insert "Unified ID" after the Order column
+          let cols = Object.keys(rawJson[0]);
+          let ordIdx = cols.findIndex(k => k.toLowerCase().includes("order #") || k.toLowerCase() === "ord");
+          if (ordIdx !== -1) {
+              cols.splice(ordIdx + 1, 0, "Unified ID");
+          } else {
+              cols.push("Unified ID");
+          }
+          store.columns = cols;
+      }
     }
   };
   reader.readAsArrayBuffer(file);
 }
 
-function processVisualRows(rows) {
-  let currentActiveId = "";
-  let currentCustomer = "";
-  let currentShipDate = "";
+function processWithUnifiedColumn(rows) {
+  let lastKnownOrd = "";
 
-  // The logic mimics visual scanning of a printed sheet
   return rows.filter(row => Object.values(row).some(v => v !== "")).map(row => {
     let ordKey = Object.keys(row).find(k => k.toLowerCase().includes("order #") || k.toLowerCase() === "ord") || "Order #";
-    let custKey = Object.keys(row).find(k => k.toLowerCase().includes("customer")) || "Customer";
-    let dateKey = Object.keys(row).find(k => k.toLowerCase().includes("date")) || "Ship Date";
+    let valOrd = String(row[ordKey] || "").trim();
 
-    let rawOrd = String(row[ordKey] || "").trim();
-    let rawCust = String(row[custKey] || "").trim();
-    let rawDate = String(row[dateKey] || "").trim();
-
-    // If we see a new Order #, update the active anchor
-    if (rawOrd !== "") {
-        currentActiveId = rawOrd;
-        currentCustomer = rawCust;
-        currentShipDate = rawDate;
+    // Fill-down logic: If blank, use the last captured ID
+    if (valOrd !== "") {
+        lastKnownOrd = valOrd;
     }
 
-    // Attach current row to the active anchor (Visual grouping)
-    let visualRow = { ...row };
-    visualRow._visualId = currentActiveId; 
-    visualRow[ordKey] = currentActiveId;
-    visualRow[custKey] = currentCustomer;
-    visualRow[dateKey] = currentShipDate;
-
-    return visualRow;
+    return {
+        ...row,
+        "Unified ID": lastKnownOrd
+    };
   });
 }
 
 function runComparison() {
   if (store.oldIds.size === 0 || store.newRows.length === 0) {
-    alert("Load baseline and current files first.");
+    alert("Please upload both files first.");
     return;
   }
 
@@ -168,6 +162,7 @@ function runComparison() {
   thead.innerHTML = '';
   tbody.innerHTML = '';
 
+  // Headers
   const trH = document.createElement('tr');
   store.columns.forEach(col => {
     const th = document.createElement('th');
@@ -176,19 +171,18 @@ function runComparison() {
   });
   thead.appendChild(trH);
 
-  let counter = 0;
+  // Rows
   store.newRows.forEach(row => {
-    // If the visual anchor ID was NOT in the old file, show this row
-    if (row._visualId && !store.oldIds.has(row._visualId)) {
-      counter++;
+    // Only show if the Unified ID (the parent) is missing from the baseline
+    if (row["Unified ID"] && !store.oldIds.has(row["Unified ID"])) {
       const tr = document.createElement('tr');
       store.columns.forEach(col => {
         const td = document.createElement('td');
-        const val = row[col] || "";
-        td.innerText = val;
-        if (col.toLowerCase().includes("order #") || col.toLowerCase() === "ord") {
-          td.className = "ord-font";
-        }
+        td.innerText = row[col] || "";
+        
+        if (col === "Unified ID") td.className = "unified-col";
+        if (col.toLowerCase().includes("order #") || col.toLowerCase() === "ord") td.className = "ord-font";
+        
         tr.appendChild(td);
       });
       tbody.appendChild(tr);
@@ -196,14 +190,13 @@ function runComparison() {
   });
 
   document.getElementById('results-wrap').style.display = 'block';
-  if (counter === 0) alert("No new orders found compared to baseline.");
 }
 
-function copyOrds() {
-  const ords = [...new Set(Array.from(document.querySelectorAll('.ord-font')).map(td => td.innerText))];
-  if (ords.length === 0) return;
-  navigator.clipboard.writeText(ords.join('\n'));
-  alert(`${ords.length} new Order IDs copied.`);
+function copyUnified() {
+  const ids = [...new Set(Array.from(document.querySelectorAll('.unified-col')).map(td => td.innerText))];
+  if (ids.length === 0) return;
+  navigator.clipboard.writeText(ids.join('\n'));
+  alert("Unique Unified IDs copied to clipboard.");
 }
 </script>
 
