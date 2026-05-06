@@ -7,16 +7,16 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <style>
 :root{
-  --red: #C8102E; --red-dk: #9B0E23; --nav: #1C1C1C;
+  --red: #C8102E; --nav: #1C1C1C;
   --text: #222222; --text-m: #5A6070; --bg: #F5F6F8;
   --white: #FFFFFF; --border: #D2D8E0; --blue: #0060A8;
   --green: #1B6B2F; --r: 4px; --sh: 0 2px 8px rgba(0,0,0,.11);
 }
 body{font-family: Arial, Helvetica, sans-serif; background:var(--bg); color:var(--text); margin:0; padding:20px; font-size:12px;}
 
-/* Branding: ALL CAPS, ALL RED, ARIAL BOLD STYLE */
+/* Branding: ALL CAPS, ALL RED, ITALIC BOLD */
 .header{max-width:1400px; margin:0 auto 20px; display:flex; align-items:center; gap:15px;}
-.logo-mark{font-size:32px; font-weight:900; font-style:italic; letter-spacing:-1.5px; color: var(--red); font-family: Arial, sans-serif; text-transform: uppercase;}
+.logo-mark{font-size:32px; font-weight:900; font-style:italic; letter-spacing:-1.5px; color: var(--red); text-transform: uppercase;}
 .title-area h1{font-size:18px; margin:0; text-transform:uppercase; font-weight: 800; color: var(--nav);}
 
 .wrap{max-width:1400px; margin:0 auto; display:grid; gap:20px;}
@@ -110,8 +110,8 @@ function handleDrop(e, type) {
     const workbook = XLSX.read(new Uint8Array(event.target.result), {type: 'array'});
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     
-    // defval: "" ensures every cell has a value so rows aren't skipped
-    const rawJson = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    // Convert sheet to JSON ensuring NO rows are skipped
+    const rawJson = XLSX.utils.sheet_to_json(sheet, { defval: "", blankrows: true });
     const processed = processRows(rawJson);
 
     if (type === 'old') {
@@ -129,8 +129,8 @@ function processRows(rows) {
   let lastCust = "";
   let lastDate = "";
 
-  return rows.map(row => {
-    // Dynamic key identification for Order/Customer/Date
+  // Filter out completely blank rows at the end, but process rows with missing ORD numbers
+  return rows.filter(row => Object.values(row).some(v => v !== "")).map(row => {
     let ordKey = Object.keys(row).find(k => {
       let lk = k.toLowerCase().trim();
       return lk === "ord" || lk.includes("order #") || lk === "order";
@@ -143,17 +143,16 @@ function processRows(rows) {
     let valCust = String(row[custKey] || "").trim();
     let valDate = String(row[dateKey] || "").trim();
 
-    // If row has a new Order Number, update our memory. 
-    // If blank, it uses the "lastOrd" (carrying over Dave Z for both rows).
+    // Fill-down logic: Inherit values if the current row is blank
     if (valOrd !== "") lastOrd = valOrd;
     if (valCust !== "") lastCust = valCust;
     if (valDate !== "") lastDate = valDate;
 
     let newRow = { ...row };
-    newRow._ordId = lastOrd; // Internal comparison ID
-    newRow[ordKey] = lastOrd; // Display fix
-    newRow[custKey] = lastCust; // Display fix
-    newRow[dateKey] = lastDate; // Display fix
+    newRow._ordId = lastOrd; 
+    newRow[ordKey] = lastOrd; 
+    newRow[custKey] = lastCust;
+    newRow[dateKey] = lastDate;
 
     return newRow;
   });
@@ -161,7 +160,7 @@ function processRows(rows) {
 
 function runComparison() {
   if (store.oldIds.size === 0 || store.newRows.length === 0) {
-    alert("Please load both files first.");
+    alert("Please upload both files.");
     return;
   }
 
@@ -178,11 +177,11 @@ function runComparison() {
   });
   thead.appendChild(trH);
 
-  let matchFound = 0;
+  let newItemsCount = 0;
   store.newRows.forEach(row => {
-    // Only show if the parent ORD number wasn't in the baseline file
+    // Check if the inherited ORD ID is missing from the baseline
     if (row._ordId && !store.oldIds.has(row._ordId)) {
-      matchFound++;
+      newItemsCount++;
       const tr = document.createElement('tr');
       store.columns.forEach(col => {
         const td = document.createElement('td');
@@ -200,14 +199,14 @@ function runComparison() {
   });
 
   document.getElementById('results-wrap').style.display = 'block';
-  if (matchFound === 0) alert("No new orders detected.");
+  if (newItemsCount === 0) alert("No differences found.");
 }
 
 function copyOrds() {
   const ords = [...new Set(Array.from(document.querySelectorAll('.ord-font')).map(td => td.innerText))];
   if (ords.length === 0) return;
   navigator.clipboard.writeText(ords.join('\n'));
-  alert(`${ords.length} unique ORD numbers copied.`);
+  alert(`${ords.length} unique ORD numbers copied to clipboard.`);
 }
 </script>
 
