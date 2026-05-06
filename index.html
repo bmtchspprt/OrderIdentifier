@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BINMASTER | ORD Tool</title>
+<title>BINMASTER | ORD Delta Tool</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <style>
 :root{
@@ -26,7 +26,6 @@ body{font-family: Arial, sans-serif; background:var(--bg); color:var(--text); ma
 
 .drop-zone{padding:40px 20px; text-align:center; border:2px dashed var(--border); margin:15px; border-radius:var(--r); cursor:pointer; background:#FAFBFF; transition: 0.2s;}
 .drop-zone:hover{background: #f0f4ff; border-color: var(--blue);}
-.drop-zone.drag-over{border-color:var(--red); background: #fff1f1;}
 
 .btn-row{text-align:center; padding: 20px; background: white; border: 1px solid var(--border); border-radius: var(--r); margin-bottom: 20px;}
 .btn{padding:12px 24px; border-radius:var(--r); border:none; cursor:pointer; font-weight:700; font-size:13px; margin: 0 10px; text-transform: uppercase;}
@@ -47,7 +46,7 @@ td{padding:8px 10px; border-bottom:1px solid var(--border); font-size:11px;}
   <div class="logo-mark">BINMASTER</div>
   <div class="title-area">
     <h1>Comprehensive ORD Delta</h1>
-    <div style="font-size:10px; color:var(--text-m)">Fixed Multi-Anchor Logic</div>
+    <div style="font-size:10px; color:var(--text-m)">Logic: Anchor Validation (No Drift)</div>
   </div>
 </div>
 
@@ -55,7 +54,7 @@ td{padding:8px 10px; border-bottom:1px solid var(--border); font-size:11px;}
   <div class="drop-grid">
     <div class="card">
       <div class="card-hd">Step 1: Baseline (Older Export)</div>
-      <div class="drop-zone" id="dz-old" onclick="document.getElementById('in-old').click()" ondragover="hDrag(event)" ondrop="hDrop(event, 'old')">
+      <div class="drop-zone" onclick="document.getElementById('in-old').click()" ondragover="e=>e.preventDefault()" ondrop="hDrop(event, 'old')">
         <strong>Baseline File</strong><br>Click or Drop
         <input type="file" id="in-old" hidden onchange="hInput(this, 'old')">
         <div id="name-old" style="margin-top:10px; color:var(--blue); font-weight:bold;"></div>
@@ -64,7 +63,7 @@ td{padding:8px 10px; border-bottom:1px solid var(--border); font-size:11px;}
 
     <div class="card">
       <div class="card-hd">Step 2: Current (Newer Export)</div>
-      <div class="drop-zone" id="dz-new" onclick="document.getElementById('in-new').click()" ondragover="hDrag(event)" ondrop="hDrop(event, 'new')">
+      <div class="drop-zone" onclick="document.getElementById('in-new').click()" ondragover="e=>e.preventDefault()" ondrop="hDrop(event, 'new')">
         <strong>Current File</strong><br>Click or Drop
         <input type="file" id="in-new" hidden onchange="hInput(this, 'new')">
         <div id="name-new" style="margin-top:10px; color:var(--blue); font-weight:bold;"></div>
@@ -79,16 +78,13 @@ td{padding:8px 10px; border-bottom:1px solid var(--border); font-size:11px;}
 
   <div id="out-card" class="card" style="display:none;">
     <div class="card-hd" id="out-hd">Results</div>
-    <div class="tbl-wrap">
-      <table id="main-table"><thead></thead><tbody></tbody></table>
-    </div>
+    <div class="tbl-wrap"><table id="main-table"><thead></thead><tbody></tbody></table></div>
   </div>
 </div>
 
 <script>
 let store = { oldIds: new Set(), newRows: [], columns: [] };
 
-function hDrag(e) { e.preventDefault(); }
 function hInput(el, type) { if(el.files[0]) processFile(el.files[0], type); }
 function hDrop(e, type) { e.preventDefault(); if(e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0], type); }
 
@@ -117,16 +113,18 @@ function processFile(file, type) {
 function cleanData(rows) {
     let lastID = "";
     return rows.filter(r => Object.values(r).some(v => String(v).trim() !== "")).map(row => {
-        let oK = Object.keys(row).find(k => k.toLowerCase().includes("order #") || k.toLowerCase() === "ord") || "Order #";
-        let cK = Object.keys(row).find(k => k.toLowerCase().includes("customer")) || "Customer";
+        const kOrd = Object.keys(row).find(k => k.toLowerCase().includes("order #") || k.toLowerCase() === "ord") || "Order #";
+        const kCust = Object.keys(row).find(k => k.toLowerCase().includes("customer")) || "Customer";
+        const kDate = Object.keys(row).find(k => k.toLowerCase().includes("date")) || "Ship Date";
         
-        let vO = String(row[oK] || "").trim();
-        let vC = String(row[cK] || "").trim();
+        const valO = String(row[kOrd] || "").trim();
+        const valC = String(row[kCust] || "").trim();
+        const valD = String(row[kDate] || "").trim();
 
-        // FIX: Only update the anchor if we have BOTH a new Order # AND a new Customer name.
-        // This prevents a part-only row with a misaligned order # from breaking the parent link.
-        if (vO !== "" && vC !== "") {
-            lastID = vO;
+        // LOGIC: Only update the parent ID if there is a NEW Order # AND either a Customer or Date.
+        // If it's just an Item # row, it inherits the previous ID.
+        if (valO !== "" && (valC !== "" || valD !== "")) {
+            lastID = valO;
         }
 
         return { ...row, "Unified ID": lastID };
