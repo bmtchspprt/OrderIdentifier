@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BINMASTER | ORD Delta Tool</title>
+<title>BINMASTER | ORD Delta Tool v3</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&family=Barlow:wght@400;500;600&display=swap');
@@ -139,11 +139,7 @@ body {
   transform: translateY(-1px);
   box-shadow: var(--sh-hover);
 }
-.drop-zone .drop-icon {
-  font-size: 28px;
-  margin-bottom: 8px;
-  display: block;
-}
+.drop-zone .drop-icon { font-size: 28px; margin-bottom: 8px; display: block; }
 .drop-zone strong {
   font-family: 'Barlow Condensed', sans-serif;
   font-size: 15px;
@@ -154,10 +150,7 @@ body {
   color: var(--nav);
   text-transform: uppercase;
 }
-.drop-zone .hint {
-  font-size: 11px;
-  color: var(--text-m);
-}
+.drop-zone .hint { font-size: 11px; color: var(--text-m); }
 .file-name {
   margin-top: 12px;
   color: var(--green);
@@ -197,14 +190,7 @@ body {
 .btn:active { transform: translateY(0); }
 .btn-red { background: var(--red); color: white; }
 .btn-red:hover { background: var(--red-dark); }
-.btn-gray { background: #e5e7eb; color: var(--nav); }
-.btn-gray:hover { background: #d1d5db; }
 
-.action-divider {
-  width: 1px;
-  height: 30px;
-  background: var(--border);
-}
 .action-note {
   font-size: 11px;
   color: var(--text-m);
@@ -219,11 +205,7 @@ body {
   background: var(--nav);
   align-items: center;
 }
-.stat-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+.stat-item { display: flex; align-items: center; gap: 8px; }
 .stat-num {
   font-family: 'Barlow Condensed', sans-serif;
   font-size: 22px;
@@ -238,11 +220,7 @@ body {
   letter-spacing: 0.5px;
   line-height: 1.2;
 }
-.stats-divider {
-  width: 1px;
-  height: 28px;
-  background: #374151;
-}
+.stats-divider { width: 1px; height: 28px; background: #374151; }
 .stats-title {
   font-family: 'Barlow Condensed', sans-serif;
   font-size: 13px;
@@ -275,15 +253,11 @@ td {
   border-bottom: 1px solid var(--border);
   font-size: 12px;
 }
-
 .row-header td {
   background: #fff8f8;
   border-top: 2px solid var(--red);
 }
-.row-child td {
-  background: white;
-}
-
+.row-child td { background: white; }
 .ord-cell {
   font-family: 'Barlow Condensed', sans-serif;
   font-weight: 700;
@@ -304,8 +278,8 @@ td {
   <div class="logo-mark">BinMaster</div>
   <div class="logo-divider"></div>
   <div class="title-area">
-    <h1>Comprehensive ORD Delta</h1>
-    <div class="sub">Logic: Anchor Validation · 11-Row Context Pull</div>
+    <h1>Comprehensive ORD Delta <span style="color:var(--red);">v3</span></h1>
+    <div class="sub">Compare Baseline · Surface New Orders · 10-Row Detail Pull</div>
   </div>
 </div>
 
@@ -338,10 +312,8 @@ td {
   </div>
 
   <div class="action-bar">
-    <button class="btn btn-gray" onclick="showPreview()">1. Preview Current File</button>
-    <div class="action-divider"></div>
-    <button class="btn btn-red" onclick="runComparison()">2. Show New Orders</button>
-    <div class="action-note">New orders shown with order row<br>+ 10 following rows of detail</div>
+    <button class="btn btn-red" onclick="runComparison()">Show New Orders</button>
+    <div class="action-note">Finds order numbers in Current that are absent from Baseline<br>and displays each with its 10 following detail rows</div>
   </div>
 
   <div id="out-card" class="card" style="display:none;">
@@ -354,29 +326,41 @@ td {
 </div>
 
 <script>
-let store = { oldIds: new Set(), newRows: [], columns: [] };
+let store = { oldOrderNums: new Set(), newRows: [], columns: [] };
 
 function ev(e) { e.preventDefault(); }
 function hInput(el, type) { if (el.files[0]) processFile(el.files[0], type); }
 function hDrop(e, type) { ev(e); if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0], type); }
 
 function isOrdKey(k) {
-  return k.toLowerCase().includes("order #") || k.toLowerCase() === "ord";
+  const l = k.toLowerCase();
+  return l.includes("order #") || l.includes("order#") || l === "ord";
+}
+
+function getOrdKey(row) {
+  return Object.keys(row).find(isOrdKey) || null;
+}
+
+function getOrderNum(row) {
+  const k = getOrdKey(row);
+  return k ? String(row[k] || "").trim() : "";
 }
 
 function processFile(file, type) {
   const reader = new FileReader();
   reader.onload = (e) => {
-    const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-    const raw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "", blankrows: true });
-    const processed = cleanData(raw);
+    const wb  = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+    const raw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "", blankrows: false });
 
     if (type === 'old') {
-      store.oldIds = new Set(processed.map(r => r.__unifiedId).filter(Boolean));
+      // Collect every non-empty order number from the baseline
+      store.oldOrderNums = new Set(
+        raw.map(r => getOrderNum(r)).filter(v => v !== "")
+      );
       setName('name-old', file.name);
     } else {
-      store.newRows = processed;
-      store.columns = Object.keys(raw[0] || {});
+      store.newRows  = raw;
+      store.columns  = Object.keys(raw[0] || {});
       setName('name-new', file.name);
     }
   };
@@ -384,82 +368,46 @@ function processFile(file, type) {
 }
 
 function setName(id, name) {
-  document.getElementById(id).innerHTML = `<span class="file-name">✅ ${name}</span>`;
-}
-
-function cleanData(rows) {
-  let lastID = "";
-  return rows
-    .filter(r => Object.values(r).some(v => String(v).trim() !== ""))
-    .map(row => {
-      const kOrd  = Object.keys(row).find(isOrdKey)  || "Order #";
-      const kCust = Object.keys(row).find(k => k.toLowerCase().includes("customer")) || "Customer";
-      const kDate = Object.keys(row).find(k => k.toLowerCase().includes("date"))     || "Ship Date";
-
-      const valO = String(row[kOrd]  || "").trim();
-      const valC = String(row[kCust] || "").trim();
-      const valD = String(row[kDate] || "").trim();
-
-      if (valO !== "" && (valC !== "" || valD !== "")) {
-        lastID = valO;
-      }
-      // Store unified ID as a hidden internal field, not a display column
-      return { ...row, __unifiedId: lastID };
-    });
-}
-
-function isHeaderRow(row) {
-  const kOrd  = Object.keys(row).find(isOrdKey) || "Order #";
-  const kCust = Object.keys(row).find(k => k.toLowerCase().includes("customer")) || "Customer";
-  const kDate = Object.keys(row).find(k => k.toLowerCase().includes("date"))     || "Ship Date";
-  return String(row[kOrd]  || "").trim() !== "" &&
-        (String(row[kCust] || "").trim() !== "" || String(row[kDate] || "").trim() !== "");
-}
-
-function showPreview() {
-  renderTable(
-    store.newRows.map((row, i) => ({ row, isHeader: isHeaderRow(row), index: i })),
-    "Full Preview — All Rows",
-    false
-  );
+  document.getElementById(id).innerHTML =
+    `<span class="file-name">✅ ${name}</span>`;
 }
 
 function runComparison() {
   if (!store.newRows.length) { alert("Please load the Current file first."); return; }
+  if (!store.oldOrderNums.size) { alert("Please load the Baseline file first."); return; }
 
   const CONTEXT_ROWS = 10;
-  const included = new Set();
+  const rows         = store.newRows;
+  const included     = []; // { rowObj, isHeader }
 
-  store.newRows.forEach((row, i) => {
-    const uid = row.__unifiedId;
-    if (!uid || store.oldIds.has(uid)) return;
-    if (isHeaderRow(row)) {
-      for (let j = i; j < Math.min(i + CONTEXT_ROWS + 1, store.newRows.length); j++) {
-        included.add(j);
-      }
+  let i = 0;
+  while (i < rows.length) {
+    const ordNum = getOrderNum(rows[i]);
+    // Is this row an order header that is NEW (not in baseline)?
+    if (ordNum !== "" && !store.oldOrderNums.has(ordNum)) {
+      // Pull this row + next 10
+      const block = rows.slice(i, i + CONTEXT_ROWS + 1);
+      block.forEach((r, idx) => included.push({ row: r, isHeader: idx === 0 }));
+      i += CONTEXT_ROWS + 1;
+    } else {
+      i++;
     }
-  });
+  }
 
-  const outputRows = [];
-  store.newRows.forEach((row, i) => {
-    if (!included.has(i)) return;
-    outputRows.push({ row, isHeader: isHeaderRow(row), index: i });
-  });
-
-  renderTable(outputRows, "New Orders — Order Row + 10 Detail Rows", true);
+  renderTable(included);
 }
 
-function renderTable(data, title, isDelta) {
+function renderTable(data) {
   const card  = document.getElementById('out-card');
   const thead = document.querySelector('#main-table thead');
   const tbody = document.querySelector('#main-table tbody');
   thead.innerHTML = '';
   tbody.innerHTML = '';
 
-  // Header row
-  const trH = document.createElement('tr');
+  // Build header
+  const trH   = document.createElement('tr');
   const thNum = document.createElement('th');
-  thNum.innerText = '#';
+  thNum.innerText  = '#';
   thNum.style.width = '40px';
   trH.appendChild(thNum);
   store.columns.forEach(c => {
@@ -469,29 +417,21 @@ function renderTable(data, title, isDelta) {
   });
   thead.appendChild(trH);
 
+  // Build body
   let newOrderCount = 0;
-  let rowCount = 0;
-  const seenOrders = new Set();
-
-  data.forEach(({ row, isHeader }) => {
-    rowCount++;
-    if (isDelta && isHeader) {
-      const uid = row.__unifiedId;
-      if (!seenOrders.has(uid)) { seenOrders.add(uid); newOrderCount++; }
-    }
-
+  data.forEach(({ row, isHeader }, idx) => {
+    if (isHeader) newOrderCount++;
     const tr = document.createElement('tr');
     tr.className = isHeader ? 'row-header' : 'row-child';
 
     const tdNum = document.createElement('td');
-    tdNum.className = 'row-num';
-    tdNum.innerText = rowCount;
+    tdNum.className  = 'row-num';
+    tdNum.innerText  = idx + 1;
     tr.appendChild(tdNum);
 
     store.columns.forEach(col => {
       const td  = document.createElement('td');
-      const val = row[col] !== undefined ? String(row[col]) : "";
-      td.innerText = val;
+      td.innerText = row[col] !== undefined ? String(row[col]) : "";
       if (isOrdKey(col) && isHeader) td.className = 'ord-cell';
       tr.appendChild(td);
     });
@@ -499,35 +439,24 @@ function renderTable(data, title, isDelta) {
     tbody.appendChild(tr);
   });
 
-  // Stats bar
-  const statsBar = document.getElementById('stats-bar');
-  if (isDelta) {
-    statsBar.innerHTML = `
-      <div class="stat-item">
-        <div class="stat-num">${newOrderCount}</div>
-        <div class="stat-label">New<br>Orders</div>
-      </div>
-      <div class="stats-divider"></div>
-      <div class="stat-item">
-        <div class="stat-num">${rowCount}</div>
-        <div class="stat-label">Total<br>Rows</div>
-      </div>
-      <div class="stats-divider"></div>
-      <div class="stat-item">
-        <div class="stat-num">${store.oldIds.size}</div>
-        <div class="stat-label">Baseline<br>Orders</div>
-      </div>
-      <div class="stats-title">${title}</div>
-    `;
-  } else {
-    statsBar.innerHTML = `
-      <div class="stat-item">
-        <div class="stat-num">${rowCount}</div>
-        <div class="stat-label">Total<br>Rows</div>
-      </div>
-      <div class="stats-title">${title}</div>
-    `;
-  }
+  // Stats
+  document.getElementById('stats-bar').innerHTML = `
+    <div class="stat-item">
+      <div class="stat-num">${newOrderCount}</div>
+      <div class="stat-label">New<br>Orders</div>
+    </div>
+    <div class="stats-divider"></div>
+    <div class="stat-item">
+      <div class="stat-num">${data.length}</div>
+      <div class="stat-label">Total<br>Rows</div>
+    </div>
+    <div class="stats-divider"></div>
+    <div class="stat-item">
+      <div class="stat-num">${store.oldOrderNums.size}</div>
+      <div class="stat-label">Baseline<br>Orders</div>
+    </div>
+    <div class="stats-title">New Orders — Order Row + 10 Detail Rows</div>
+  `;
 
   card.style.display = 'block';
   card.scrollIntoView({ behavior: 'smooth', block: 'start' });
