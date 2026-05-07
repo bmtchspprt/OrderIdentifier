@@ -329,7 +329,8 @@ td {
 </div>
 
 <script>
-let store = { oldOrderNums: new Set(), newRows: [], columns: [] };
+// store.newRawRows = raw rows straight from XLSX, index-aligned with the spreadsheet
+let store = { oldOrderNums: new Set(), newRawRows: [], columns: [] };
 
 function ev(e) { e.preventDefault(); }
 function hInput(el, type) { if (el.files[0]) processFile(el.files[0], type); }
@@ -342,29 +343,32 @@ function isOrdKey(k) {
 
 function getOrderNum(row) {
   const k = Object.keys(row).find(isOrdKey);
+  // Return the raw cell value exactly — no trimming logic that could fill blanks
   return k ? String(row[k] || "").trim() : "";
 }
 
 function processFile(file, type) {
   const reader = new FileReader();
   reader.onload = (e) => {
-    const wb  = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-    // raw=true preserves blank cells; defval="" fills truly missing keys
-    const raw = XLSX.utils.sheet_to_json(
-      wb.Sheets[wb.SheetNames[0]],
-      { defval: "", blankrows: false }
-    );
+    const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+
+    // Use header:1 to get raw arrays first so we can detect truly blank cells
+    // Then use sheet_to_json with defval:"" so every column key exists on every row
+    const raw = XLSX.utils.sheet_to_json(sheet, { defval: "", blankrows: true });
 
     if (type === 'old') {
-      // Collect every non-empty order number from the baseline — no mutation
+      // Collect all non-blank order numbers from baseline — read only, no mutation
       store.oldOrderNums = new Set(
         raw.map(r => getOrderNum(r)).filter(v => v !== "")
       );
       setName('name-old', file.name);
     } else {
-      // Store rows exactly as parsed — no filling, no augmenting
-      store.newRows  = raw;
-      store.columns  = Object.keys(raw[0] || {});
+      // Keep every row exactly as-is, including blank rows
+      store.newRawRows = raw;
+      // Build column list from first non-empty row
+      const firstRow = raw.find(r => Object.values(r).some(v => String(v).trim() !== ""));
+      store.columns = firstRow ? Object.keys(firstRow) : [];
       setName('name-new', file.name);
     }
   };
@@ -377,40 +381,51 @@ function setName(id, name) {
 }
 
 function runComparison() {
-  if (!store.newRows.length)      { alert("Please load the Current file first.");  return; }
+  if (!store.newRawRows.length)   { alert("Please load the Current file first.");  return; }
   if (!store.oldOrderNums.size)   { alert("Please load the Baseline file first."); return; }
 
   const CONTEXT_ROWS = 10;
-  const rows         = store.newRows;
-  const output       = []; // { row, isHeader }
+  const rows = store.newRawRows;
 
+  // Step 1: Find the spreadsheet row index of every NEW order header.
+  // A row is an order header if and only if its Order # cell is non-blank
+  // AND that order number does not exist in the baseline.
+  // We do NOT skip rows here — we scan every single row independently.
+  const headerIndices = [];
   for (let i = 0; i < rows.length; i++) {
-    const ordNum = getOrderNum(rows[i]);
-
-    // Only act on rows that actually have an order number AND it's new
-    if (ordNum !== "" && !store.oldOrderNums.has(ordNum)) {
-      // Header row
-      output.push({ row: rows[i], isHeader: true });
-      // Next 10 rows verbatim — no order-number checks, just raw rows
-      for (let j = i + 1; j < Math.min(i + CONTEXT_ROWS + 1, rows.length); j++) {
-        output.push({ row: rows[j], isHeader: false });
-      }
-      // Skip ahead so we don't double-process the detail rows
-      i += CONTEXT_ROWS;
+    const ord = getOrderNum(rows[i]);
+    if (ord !== "" && !store.oldOrderNums.has(ord)) {
+      headerIndices.push(i);
     }
   }
 
-  renderTable(output);
+  // Step 2: For each header index, collect that row + the next 10 rows
+  // from the raw array. Rows can overlap between orders if orders are close
+  // together — we track which indices we've already added to avoid duplicates.
+  const seen = new Set();
+  const output = []; // { row, isHeader }
+
+  for (const hi of headerIndices) {
+    const end = Math.min(hi + CONTEXT_ROWS + 1, rows.length);
+    for (let j = hi; j < end; j++) {
+      if (!seen.has(j)) {
+        seen.add(j);
+        output.push({ row: rows[j], isHeader: j === hi });
+      }
+    }
+  }
+
+  renderTable(output, headerIndices.length);
 }
 
-function renderTable(data) {
+function renderTable(data, newOrderCount) {
   const card  = document.getElementById('out-card');
   const thead = document.querySelector('#main-table thead');
   const tbody = document.querySelector('#main-table tbody');
   thead.innerHTML = '';
   tbody.innerHTML = '';
 
-  // Header row
+  // Table header
   const trH   = document.createElement('tr');
   const thNum = document.createElement('th');
   thNum.innerText   = '#';
@@ -423,11 +438,8 @@ function renderTable(data) {
   });
   thead.appendChild(trH);
 
-  // Data rows
-  let newOrderCount = 0;
+  // Table body — render cells exactly as they came from the spreadsheet
   data.forEach(({ row, isHeader }, idx) => {
-    if (isHeader) newOrderCount++;
-
     const tr = document.createElement('tr');
     tr.className = isHeader ? 'row-header' : 'row-child';
 
@@ -437,8 +449,8 @@ function renderTable(data) {
     tr.appendChild(tdNum);
 
     store.columns.forEach(col => {
-      const td = document.createElement('td');
-      // Display exactly what the spreadsheet contains — empty cells stay empty
+      const td  = document.createElement('td');
+      // Show exactly what the cell contains — blank stays blank
       td.innerText = row[col] !== undefined ? String(row[col]) : "";
       if (isOrdKey(col) && isHeader) td.className = 'ord-cell';
       tr.appendChild(td);
