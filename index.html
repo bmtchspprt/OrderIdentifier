@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BINMASTER | Comprehensive ORD Delta V5</title>
+    <title>BINMASTER | ORD Delta Simple</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
@@ -19,63 +19,57 @@
         <div class="max-w-7xl mx-auto flex items-baseline gap-4">
             <h1 class="text-3xl font-black italic tracking-tighter text-red-700">BINMASTER</h1>
             <div class="flex flex-col">
-                <span class="text-xl font-bold text-gray-800 uppercase">Comprehensive ORD Delta <span class="text-red-600">V5</span></span>
-                <span class="text-xs tracking-widest text-gray-400 uppercase font-semibold">Compare Baseline · Surface New Orders · 10-Row Detail Pull</span>
+                <span class="text-xl font-bold text-gray-800 uppercase text-xs uppercase font-semibold">New Order Number Finder</span>
             </div>
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto p-6 space-y-6">
+    <main class="max-w-4xl mx-auto p-6 space-y-6">
         
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="bg-white rounded shadow-sm overflow-hidden border border-gray-200">
                 <div class="bg-black text-white px-4 py-2 flex items-center gap-2">
                     <span class="bg-red-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">1</span>
-                    <span class="text-xs font-bold uppercase tracking-wider">Baseline (Older Export)</span>
+                    <span class="text-xs font-bold uppercase tracking-wider">Baseline File</span>
                 </div>
-                <div id="drop-baseline" class="drop-zone m-4 p-12 rounded-lg flex flex-col items-center justify-center text-center cursor-pointer">
-                    <svg class="w-12 h-12 text-yellow-400 mb-2" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path></svg>
-                    <p class="font-bold text-sm uppercase">Baseline File</p>
-                    <p class="text-xs text-gray-400">Click to browse or drag & drop (.xlsx, .csv)</p>
+                <div id="drop-baseline" class="drop-zone m-4 p-8 rounded-lg flex flex-col items-center justify-center text-center cursor-pointer">
+                    <svg class="w-10 h-10 text-yellow-400 mb-2" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path></svg>
+                    <p id="name-baseline" class="text-xs text-gray-400 font-bold uppercase">Drag Baseline Here</p>
                     <input type="file" id="file-baseline" class="hidden" accept=".xlsx, .xls, .csv">
-                    <p id="name-baseline" class="mt-2 text-blue-600 text-xs font-semibold"></p>
                 </div>
             </div>
 
             <div class="bg-white rounded shadow-sm overflow-hidden border border-gray-200">
                 <div class="bg-black text-white px-4 py-2 flex items-center gap-2">
                     <span class="bg-red-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">2</span>
-                    <span class="text-xs font-bold uppercase tracking-wider">Current (Newer Export)</span>
+                    <span class="text-xs font-bold uppercase tracking-wider">Current File</span>
                 </div>
-                <div id="drop-current" class="drop-zone m-4 p-12 rounded-lg flex flex-col items-center justify-center text-center cursor-pointer">
-                    <svg class="w-12 h-12 text-yellow-400 mb-2" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path></svg>
-                    <p class="font-bold text-sm uppercase">Current File</p>
-                    <p class="text-xs text-gray-400">Click to browse or drag & drop (.xlsx, .csv)</p>
+                <div id="drop-current" class="drop-zone m-4 p-8 rounded-lg flex flex-col items-center justify-center text-center cursor-pointer">
+                    <svg class="w-10 h-10 text-yellow-400 mb-2" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path></svg>
+                    <p id="name-current" class="text-xs text-gray-400 font-bold uppercase">Drag Current Here</p>
                     <input type="file" id="file-current" class="hidden" accept=".xlsx, .xls, .csv">
-                    <p id="name-current" class="mt-2 text-blue-600 text-xs font-semibold"></p>
                 </div>
             </div>
         </div>
 
-        <div class="bg-white p-6 rounded border border-gray-200 flex items-center justify-center gap-6 shadow-sm">
-            <button id="process-btn" class="binmaster-red text-white px-8 py-3 rounded font-bold uppercase tracking-tighter text-sm transition-colors">
-                Show New Orders
+        <div class="bg-white p-4 rounded border border-gray-200 flex flex-col items-center gap-4 shadow-sm">
+            <button id="process-btn" class="binmaster-red text-white px-10 py-3 rounded font-bold uppercase text-sm w-full md:w-auto">
+                Compare and List New Orders
             </button>
-            <p class="text-xs text-gray-500 max-w-xs leading-tight font-medium">
-                Finds order numbers in Current absent from Baseline and shows each with its 10 following rows
-            </p>
         </div>
 
-        <div id="results" class="hidden space-y-4">
-            <h2 class="text-lg font-bold uppercase border-b-2 border-black pb-1">Delta Report</h2>
-            <div id="report-output" class="overflow-x-auto bg-white rounded shadow-sm"></div>
+        <div id="results" class="hidden">
+            <div class="bg-white border border-gray-200 rounded p-6 shadow-sm">
+                <h3 class="text-sm font-black uppercase mb-4 border-b pb-2">Results: New Order Numbers Found</h3>
+                <div id="report-output" class="grid grid-cols-2 md:grid-cols-4 gap-2 font-mono text-sm"></div>
+                <div id="summary-count" class="mt-4 text-xs font-bold text-gray-500 uppercase"></div>
+            </div>
         </div>
     </main>
 
     <script>
         let dataStore = { baseline: null, current: null };
 
-        // Setup UI logic
         function setupDropZone(zoneId, inputId, key) {
             const zone = document.getElementById(zoneId);
             const input = document.getElementById(inputId);
@@ -94,7 +88,9 @@
 
         async function handleFile(file, key, display) {
             if (!file) return;
-            display.innerText = `Loaded: ${file.name}`;
+            display.innerText = file.name;
+            display.classList.remove('text-gray-400');
+            display.classList.add('text-blue-600');
             const data = await file.arrayBuffer();
             const workbook = XLSX.read(data);
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -106,66 +102,45 @@
 
         document.getElementById('process-btn').onclick = () => {
             if (!dataStore.baseline || !dataStore.current) {
-                alert("Please upload both files first.");
+                alert("Please upload both files.");
                 return;
             }
 
             const baselineRows = dataStore.baseline;
             const currentRows = dataStore.current;
-
-            // 1. Identify "Order Number" column index (Assuming it's the first column containing 'Order')
             const header = currentRows[0];
             const orderColIndex = header.findIndex(h => String(h).toLowerCase().includes('order'));
             
             if (orderColIndex === -1) {
-                alert("Could not find a column named 'Order Number'. Please check your Excel headers.");
+                alert("Could not find 'Order' column.");
                 return;
             }
 
-            // 2. Map Baseline Order Numbers for fast lookup
-            const baselineSet = new Set(baselineRows.map(row => String(row[orderColIndex]).trim()));
-
-            // 3. Find Deltas
-            let reportHtml = `<table class="min-w-full text-xs text-left border-collapse">
-                                <thead class="bg-gray-200 uppercase font-bold">
-                                    <tr><th class="p-2 border">Status</th>${header.map(h => `<th class="p-2 border">${h || ''}</th>`).join('')}</tr>
-                                </thead><tbody>`;
-
-            let foundNew = false;
+            // Create a set of all Order IDs in the baseline
+            const baselineSet = new Set(baselineRows.slice(1).map(row => String(row[orderColIndex]).trim()));
+            
+            // Find IDs in Current that aren't in Baseline
+            const newOrders = [];
             for (let i = 1; i < currentRows.length; i++) {
-                const orderId = String(currentRows[i][orderColIndex]).trim();
-
-                if (orderId && !baselineSet.has(orderId)) {
-                    foundNew = true;
-                    // Add the "New Order" row
-                    reportHtml += `<tr class="bg-green-50 font-bold border-t-2 border-green-200 text-green-800">
-                                    <td class="p-2 border">NEW ORDER</td>
-                                    ${currentRows[i].map(cell => `<td class="p-2 border">${cell || ''}</td>`).join('')}
-                                   </tr>`;
-                    
-                    // Add the 10 following rows
-                    for (let j = 1; j <= 10; j++) {
-                        const detailRow = currentRows[i + j];
-                        if (detailRow) {
-                            reportHtml += `<tr class="border-b">
-                                            <td class="p-2 border text-gray-400 italic">Detail +${j}</td>
-                                            ${detailRow.map(cell => `<td class="p-2 border text-gray-600">${cell || ''}</td>`).join('')}
-                                           </tr>`;
-                        }
-                    }
+                const val = String(currentRows[i][orderColIndex]).trim();
+                if (val && !baselineSet.has(val)) {
+                    newOrders.push(val);
                 }
             }
 
-            if (!foundNew) {
-                reportHtml = `<div class="p-8 text-center text-gray-500 font-bold uppercase">No New Orders Found</div>`;
+            const uniqueNewOrders = [...new Set(newOrders)];
+            const output = document.getElementById('report-output');
+            const summary = document.getElementById('summary-count');
+            
+            if (uniqueNewOrders.length > 0) {
+                output.innerHTML = uniqueNewOrders.map(id => `<div class="bg-gray-50 border p-2 rounded text-center">${id}</div>`).join('');
+                summary.innerText = `Total New Orders: ${uniqueNewOrders.length}`;
             } else {
-                reportHtml += `</tbody></table>`;
+                output.innerHTML = `<div class="col-span-full py-4 text-gray-400 italic">No new order numbers detected.</div>`;
+                summary.innerText = "";
             }
 
-            const resultsDiv = document.getElementById('results');
-            resultsDiv.classList.remove('hidden');
-            document.getElementById('report-output').innerHTML = reportHtml;
-            resultsDiv.scrollIntoView({ behavior: 'smooth' });
+            document.getElementById('results').classList.remove('hidden');
         };
     </script>
 </body>
