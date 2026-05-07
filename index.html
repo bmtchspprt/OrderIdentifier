@@ -217,7 +217,6 @@ body {
   gap: 16px;
   padding: 14px 20px;
   background: var(--nav);
-  border-radius: var(--r) var(--r) 0 0;
   align-items: center;
 }
 .stat-item {
@@ -284,9 +283,6 @@ td {
 .row-child td {
   background: white;
 }
-.row-child:last-of-type td {
-  border-bottom: 3px solid #e5e7eb;
-}
 
 .ord-cell {
   font-family: 'Barlow Condensed', sans-serif;
@@ -294,40 +290,12 @@ td {
   color: var(--red);
   font-size: 14px;
 }
-.uid-cell {
-  background: var(--blue-light) !important;
-  font-weight: 700;
-  color: var(--blue);
-  font-size: 11px;
-}
-.new-badge {
-  display: inline-block;
-  background: var(--red);
-  color: white;
-  font-family: 'Barlow Condensed', sans-serif;
-  font-size: 9px;
-  font-weight: 900;
-  padding: 1px 5px;
-  border-radius: 3px;
-  letter-spacing: 0.5px;
-  vertical-align: middle;
-  margin-left: 4px;
-}
 .row-num {
   color: #d1d5db;
   font-size: 10px;
   text-align: right;
   font-family: 'Barlow Condensed', sans-serif;
 }
-
-.empty-state {
-  padding: 50px;
-  text-align: center;
-  color: var(--text-m);
-}
-.empty-state .icon { font-size: 40px; margin-bottom: 12px; }
-.empty-state .msg { font-size: 14px; font-weight: 600; }
-.empty-state .sub  { font-size: 12px; margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -370,7 +338,7 @@ td {
   </div>
 
   <div class="action-bar">
-    <button class="btn btn-gray" onclick="showPreview()">1. Audit Unified IDs</button>
+    <button class="btn btn-gray" onclick="showPreview()">1. Preview Current File</button>
     <div class="action-divider"></div>
     <button class="btn btn-red" onclick="runComparison()">2. Show New Orders</button>
     <div class="action-note">New orders shown with order row<br>+ 10 following rows of detail</div>
@@ -386,11 +354,15 @@ td {
 </div>
 
 <script>
-let store = { oldIds: new Set(), newRows: [], rawRows: [], columns: [] };
+let store = { oldIds: new Set(), newRows: [], columns: [] };
 
 function ev(e) { e.preventDefault(); }
 function hInput(el, type) { if (el.files[0]) processFile(el.files[0], type); }
 function hDrop(e, type) { ev(e); if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0], type); }
+
+function isOrdKey(k) {
+  return k.toLowerCase().includes("order #") || k.toLowerCase() === "ord";
+}
 
 function processFile(file, type) {
   const reader = new FileReader();
@@ -400,16 +372,11 @@ function processFile(file, type) {
     const processed = cleanData(raw);
 
     if (type === 'old') {
-      store.oldIds = new Set(processed.map(r => r["Unified ID"]).filter(id => id !== ""));
+      store.oldIds = new Set(processed.map(r => r.__unifiedId).filter(Boolean));
       setName('name-old', file.name);
     } else {
-      store.rawRows = raw;
       store.newRows = processed;
-      let cols = Object.keys(raw[0] || {});
-      let idx  = cols.findIndex(k => isOrdKey(k));
-      if (idx >= 0) cols.splice(idx + 1, 0, "Unified ID");
-      else           cols.unshift("Unified ID");
-      store.columns = cols;
+      store.columns = Object.keys(raw[0] || {});
       setName('name-new', file.name);
     }
   };
@@ -418,10 +385,6 @@ function processFile(file, type) {
 
 function setName(id, name) {
   document.getElementById(id).innerHTML = `<span class="file-name">✅ ${name}</span>`;
-}
-
-function isOrdKey(k) {
-  return k.toLowerCase().includes("order #") || k.toLowerCase() === "ord";
 }
 
 function cleanData(rows) {
@@ -440,12 +403,25 @@ function cleanData(rows) {
       if (valO !== "" && (valC !== "" || valD !== "")) {
         lastID = valO;
       }
-      return { ...row, "Unified ID": lastID };
+      // Store unified ID as a hidden internal field, not a display column
+      return { ...row, __unifiedId: lastID };
     });
 }
 
+function isHeaderRow(row) {
+  const kOrd  = Object.keys(row).find(isOrdKey) || "Order #";
+  const kCust = Object.keys(row).find(k => k.toLowerCase().includes("customer")) || "Customer";
+  const kDate = Object.keys(row).find(k => k.toLowerCase().includes("date"))     || "Ship Date";
+  return String(row[kOrd]  || "").trim() !== "" &&
+        (String(row[kCust] || "").trim() !== "" || String(row[kDate] || "").trim() !== "");
+}
+
 function showPreview() {
-  renderTable(store.newRows, "Full Audit — All Rows", false);
+  renderTable(
+    store.newRows.map((row, i) => ({ row, isHeader: isHeaderRow(row), index: i })),
+    "Full Preview — All Rows",
+    false
+  );
 }
 
 function runComparison() {
@@ -455,16 +431,9 @@ function runComparison() {
   const included = new Set();
 
   store.newRows.forEach((row, i) => {
-    const uid = row["Unified ID"];
+    const uid = row.__unifiedId;
     if (!uid || store.oldIds.has(uid)) return;
-
-    const kOrd  = Object.keys(row).find(isOrdKey) || "Order #";
-    const kCust = Object.keys(row).find(k => k.toLowerCase().includes("customer")) || "Customer";
-    const kDate = Object.keys(row).find(k => k.toLowerCase().includes("date"))     || "Ship Date";
-    const isHeader = String(row[kOrd]||"").trim() !== "" &&
-                     (String(row[kCust]||"").trim() !== "" || String(row[kDate]||"").trim() !== "");
-
-    if (isHeader) {
+    if (isHeaderRow(row)) {
       for (let j = i; j < Math.min(i + CONTEXT_ROWS + 1, store.newRows.length); j++) {
         included.add(j);
       }
@@ -474,12 +443,7 @@ function runComparison() {
   const outputRows = [];
   store.newRows.forEach((row, i) => {
     if (!included.has(i)) return;
-    const kOrd  = Object.keys(row).find(isOrdKey) || "Order #";
-    const kCust = Object.keys(row).find(k => k.toLowerCase().includes("customer")) || "Customer";
-    const kDate = Object.keys(row).find(k => k.toLowerCase().includes("date"))     || "Ship Date";
-    const isHeader = String(row[kOrd]||"").trim() !== "" &&
-                     (String(row[kCust]||"").trim() !== "" || String(row[kDate]||"").trim() !== "");
-    outputRows.push({ row, isHeader, globalIndex: i });
+    outputRows.push({ row, isHeader: isHeaderRow(row), index: i });
   });
 
   renderTable(outputRows, "New Orders — Order Row + 10 Detail Rows", true);
@@ -492,6 +456,7 @@ function renderTable(data, title, isDelta) {
   thead.innerHTML = '';
   tbody.innerHTML = '';
 
+  // Header row
   const trH = document.createElement('tr');
   const thNum = document.createElement('th');
   thNum.innerText = '#';
@@ -506,59 +471,35 @@ function renderTable(data, title, isDelta) {
 
   let newOrderCount = 0;
   let rowCount = 0;
+  const seenOrders = new Set();
 
-  if (isDelta) {
-    let seenOrders = new Set();
-    data.forEach(({ row, isHeader }) => {
-      rowCount++;
-      if (isHeader) {
-        const uid = row["Unified ID"];
-        if (!seenOrders.has(uid)) { seenOrders.add(uid); newOrderCount++; }
-      }
-      const tr = document.createElement('tr');
-      tr.className = isHeader ? 'row-header' : 'row-child';
+  data.forEach(({ row, isHeader }) => {
+    rowCount++;
+    if (isDelta && isHeader) {
+      const uid = row.__unifiedId;
+      if (!seenOrders.has(uid)) { seenOrders.add(uid); newOrderCount++; }
+    }
 
-      const tdNum = document.createElement('td');
-      tdNum.className = 'row-num';
-      tdNum.innerText = rowCount;
-      tr.appendChild(tdNum);
+    const tr = document.createElement('tr');
+    tr.className = isHeader ? 'row-header' : 'row-child';
 
-      store.columns.forEach(col => {
-        const td  = document.createElement('td');
-        let val   = row[col] !== undefined ? String(row[col]) : "";
-        if (col === "Unified ID") {
-          td.className = 'uid-cell';
-          td.innerText = val;
-        } else if (isOrdKey(col) && isHeader) {
-          td.className = 'ord-cell';
-          td.innerHTML = val + (val ? '<span class="new-badge">NEW</span>' : '');
-        } else {
-          td.innerText = val;
-        }
-        tr.appendChild(td);
-      });
-      tbody.appendChild(tr);
+    const tdNum = document.createElement('td');
+    tdNum.className = 'row-num';
+    tdNum.innerText = rowCount;
+    tr.appendChild(tdNum);
+
+    store.columns.forEach(col => {
+      const td  = document.createElement('td');
+      const val = row[col] !== undefined ? String(row[col]) : "";
+      td.innerText = val;
+      if (isOrdKey(col) && isHeader) td.className = 'ord-cell';
+      tr.appendChild(td);
     });
-  } else {
-    data.forEach((row, i) => {
-      rowCount++;
-      const tr = document.createElement('tr');
-      const tdNum = document.createElement('td');
-      tdNum.className = 'row-num';
-      tdNum.innerText = i + 1;
-      tr.appendChild(tdNum);
-      store.columns.forEach(col => {
-        const td = document.createElement('td');
-        td.innerText = row[col] !== undefined ? String(row[col]) : "";
-        if (col === "Unified ID") td.className = 'uid-cell';
-        if (isOrdKey(col)) td.className = 'ord-cell';
-        tr.appendChild(td);
-      });
-      tbody.appendChild(tr);
-      newOrderCount = store.newRows.length;
-    });
-  }
 
+    tbody.appendChild(tr);
+  });
+
+  // Stats bar
   const statsBar = document.getElementById('stats-bar');
   if (isDelta) {
     statsBar.innerHTML = `
