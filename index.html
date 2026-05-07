@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BINMASTER | ORD Delta Tool v3</title>
+<title>BINMASTER | ORD Delta Tool v4</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&family=Barlow:wght@400;500;600&display=swap');
@@ -278,7 +278,7 @@ td {
   <div class="logo-mark">BinMaster</div>
   <div class="logo-divider"></div>
   <div class="title-area">
-    <h1>Comprehensive ORD Delta <span style="color:var(--red);">v3</span></h1>
+    <h1>Comprehensive ORD Delta <span style="color:var(--red);">v4</span></h1>
     <div class="sub">Compare Baseline · Surface New Orders · 10-Row Detail Pull</div>
   </div>
 </div>
@@ -313,7 +313,10 @@ td {
 
   <div class="action-bar">
     <button class="btn btn-red" onclick="runComparison()">Show New Orders</button>
-    <div class="action-note">Finds order numbers in Current that are absent from Baseline<br>and displays each with its 10 following detail rows</div>
+    <div class="action-note">
+      Finds order numbers in Current that are absent from Baseline<br>
+      and displays each with its 10 following rows exactly as they appear
+    </div>
   </div>
 
   <div id="out-card" class="card" style="display:none;">
@@ -337,12 +340,8 @@ function isOrdKey(k) {
   return l.includes("order #") || l.includes("order#") || l === "ord";
 }
 
-function getOrdKey(row) {
-  return Object.keys(row).find(isOrdKey) || null;
-}
-
 function getOrderNum(row) {
-  const k = getOrdKey(row);
+  const k = Object.keys(row).find(isOrdKey);
   return k ? String(row[k] || "").trim() : "";
 }
 
@@ -350,15 +349,20 @@ function processFile(file, type) {
   const reader = new FileReader();
   reader.onload = (e) => {
     const wb  = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-    const raw = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "", blankrows: false });
+    // raw=true preserves blank cells; defval="" fills truly missing keys
+    const raw = XLSX.utils.sheet_to_json(
+      wb.Sheets[wb.SheetNames[0]],
+      { defval: "", blankrows: false }
+    );
 
     if (type === 'old') {
-      // Collect every non-empty order number from the baseline
+      // Collect every non-empty order number from the baseline — no mutation
       store.oldOrderNums = new Set(
         raw.map(r => getOrderNum(r)).filter(v => v !== "")
       );
       setName('name-old', file.name);
     } else {
+      // Store rows exactly as parsed — no filling, no augmenting
       store.newRows  = raw;
       store.columns  = Object.keys(raw[0] || {});
       setName('name-new', file.name);
@@ -373,28 +377,30 @@ function setName(id, name) {
 }
 
 function runComparison() {
-  if (!store.newRows.length) { alert("Please load the Current file first."); return; }
-  if (!store.oldOrderNums.size) { alert("Please load the Baseline file first."); return; }
+  if (!store.newRows.length)      { alert("Please load the Current file first.");  return; }
+  if (!store.oldOrderNums.size)   { alert("Please load the Baseline file first."); return; }
 
   const CONTEXT_ROWS = 10;
   const rows         = store.newRows;
-  const included     = []; // { rowObj, isHeader }
+  const output       = []; // { row, isHeader }
 
-  let i = 0;
-  while (i < rows.length) {
+  for (let i = 0; i < rows.length; i++) {
     const ordNum = getOrderNum(rows[i]);
-    // Is this row an order header that is NEW (not in baseline)?
+
+    // Only act on rows that actually have an order number AND it's new
     if (ordNum !== "" && !store.oldOrderNums.has(ordNum)) {
-      // Pull this row + next 10
-      const block = rows.slice(i, i + CONTEXT_ROWS + 1);
-      block.forEach((r, idx) => included.push({ row: r, isHeader: idx === 0 }));
-      i += CONTEXT_ROWS + 1;
-    } else {
-      i++;
+      // Header row
+      output.push({ row: rows[i], isHeader: true });
+      // Next 10 rows verbatim — no order-number checks, just raw rows
+      for (let j = i + 1; j < Math.min(i + CONTEXT_ROWS + 1, rows.length); j++) {
+        output.push({ row: rows[j], isHeader: false });
+      }
+      // Skip ahead so we don't double-process the detail rows
+      i += CONTEXT_ROWS;
     }
   }
 
-  renderTable(included);
+  renderTable(output);
 }
 
 function renderTable(data) {
@@ -404,10 +410,10 @@ function renderTable(data) {
   thead.innerHTML = '';
   tbody.innerHTML = '';
 
-  // Build header
+  // Header row
   const trH   = document.createElement('tr');
   const thNum = document.createElement('th');
-  thNum.innerText  = '#';
+  thNum.innerText   = '#';
   thNum.style.width = '40px';
   trH.appendChild(thNum);
   store.columns.forEach(c => {
@@ -417,20 +423,22 @@ function renderTable(data) {
   });
   thead.appendChild(trH);
 
-  // Build body
+  // Data rows
   let newOrderCount = 0;
   data.forEach(({ row, isHeader }, idx) => {
     if (isHeader) newOrderCount++;
+
     const tr = document.createElement('tr');
     tr.className = isHeader ? 'row-header' : 'row-child';
 
     const tdNum = document.createElement('td');
-    tdNum.className  = 'row-num';
-    tdNum.innerText  = idx + 1;
+    tdNum.className = 'row-num';
+    tdNum.innerText = idx + 1;
     tr.appendChild(tdNum);
 
     store.columns.forEach(col => {
-      const td  = document.createElement('td');
+      const td = document.createElement('td');
+      // Display exactly what the spreadsheet contains — empty cells stay empty
       td.innerText = row[col] !== undefined ? String(row[col]) : "";
       if (isOrdKey(col) && isHeader) td.className = 'ord-cell';
       tr.appendChild(td);
@@ -439,7 +447,7 @@ function renderTable(data) {
     tbody.appendChild(tr);
   });
 
-  // Stats
+  // Stats bar
   document.getElementById('stats-bar').innerHTML = `
     <div class="stat-item">
       <div class="stat-num">${newOrderCount}</div>
