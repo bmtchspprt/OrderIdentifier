@@ -1,266 +1,172 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BINMASTER | ORD Delta Tool v5</title>
-<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&family=Barlow:wght@400;500;600&display=swap');
-:root {
-  --red: #C8102E; --red-dark: #9e0c24; --nav: #111418;
-  --text: #1e2530; --text-m: #6B7280; --bg: #EDEEF2;
-  --white: #FFFFFF; --border: #D1D5DB; --blue: #0060A8;
-  --blue-light: #EEF4FF; --green: #14532d; --green-bg: #f0fdf4;
-  --r: 5px; --sh: 0 2px 10px rgba(0,0,0,.10); --sh-hover: 0 6px 20px rgba(0,0,0,.16);
-}
-*, *::before, *::after { box-sizing: border-box; }
-body { font-family: 'Barlow', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 24px 20px; font-size: 13px; }
-.header { max-width: 1440px; margin: 0 auto 24px; display: flex; align-items: center; gap: 18px; padding-bottom: 18px; border-bottom: 2px solid var(--nav); }
-.logo-mark { font-family: 'Barlow Condensed', sans-serif; font-size: 38px; font-weight: 900; font-style: italic; letter-spacing: -2px; color: var(--red); text-transform: uppercase; line-height: 1; }
-.logo-divider { width: 3px; height: 40px; background: var(--border); border-radius: 2px; }
-.title-area h1 { font-family: 'Barlow Condensed', sans-serif; font-size: 20px; margin: 0 0 2px; text-transform: uppercase; font-weight: 700; color: var(--nav); letter-spacing: 0.5px; }
-.title-area .sub { font-size: 11px; color: var(--text-m); text-transform: uppercase; letter-spacing: 0.8px; }
-.wrap { max-width: 1440px; margin: 0 auto; }
-.drop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-.card { background: var(--white); border-radius: var(--r); border: 1px solid var(--border); box-shadow: var(--sh); overflow: hidden; margin-bottom: 20px; }
-.card-hd { background: var(--nav); color: var(--white); padding: 10px 16px; font-family: 'Barlow Condensed', sans-serif; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px; }
-.step-badge { background: var(--red); color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; flex-shrink: 0; }
-.drop-zone { padding: 36px 20px; text-align: center; border: 2px dashed var(--border); margin: 16px; border-radius: var(--r); cursor: pointer; background: #FAFBFF; transition: all 0.18s ease; }
-.drop-zone:hover { background: var(--blue-light); border-color: var(--blue); transform: translateY(-1px); box-shadow: var(--sh-hover); }
-.drop-icon { font-size: 28px; margin-bottom: 8px; display: block; }
-.drop-zone strong { font-family: 'Barlow Condensed', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 0.5px; display: block; margin-bottom: 4px; color: var(--nav); text-transform: uppercase; }
-.hint { font-size: 11px; color: var(--text-m); }
-.file-name { margin-top: 12px; color: var(--green); font-weight: 600; font-size: 12px; background: var(--green-bg); padding: 5px 10px; border-radius: 20px; display: inline-block; }
-.action-bar { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 18px 20px; background: var(--white); border: 1px solid var(--border); border-radius: var(--r); margin-bottom: 20px; box-shadow: var(--sh); }
-.btn { padding: 11px 28px; border-radius: var(--r); border: none; cursor: pointer; font-family: 'Barlow Condensed', sans-serif; font-weight: 700; font-size: 14px; letter-spacing: 0.8px; text-transform: uppercase; transition: all 0.15s ease; }
-.btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.15); }
-.btn-red { background: var(--red); color: white; }
-.btn-red:hover { background: var(--red-dark); }
-.action-note { font-size: 11px; color: var(--text-m); text-align: center; }
-.stats-bar { display: flex; gap: 16px; padding: 14px 20px; background: var(--nav); align-items: center; }
-.stat-item { display: flex; align-items: center; gap: 8px; }
-.stat-num { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 900; color: var(--red); line-height: 1; }
-.stat-label { font-size: 10px; color: #9CA3AF; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.2; }
-.stats-divider { width: 1px; height: 28px; background: #374151; }
-.stats-title { font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 700; color: white; text-transform: uppercase; letter-spacing: 1px; margin-left: auto; }
-.tbl-wrap { overflow-x: auto; max-height: 640px; }
-table { width: 100%; border-collapse: collapse; white-space: nowrap; }
-th { background: #f3f4f6; text-align: left; padding: 9px 12px; font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; border-bottom: 2px solid var(--border); position: sticky; top: 0; z-index: 10; color: var(--text-m); }
-td { padding: 7px 12px; border-bottom: 1px solid var(--border); font-size: 12px; }
-.row-header td { background: #fff8f8; border-top: 2px solid var(--red); }
-.row-child td { background: white; }
-.ord-cell { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; color: var(--red); font-size: 14px; }
-.row-num { color: #d1d5db; font-size: 10px; text-align: right; font-family: 'Barlow Condensed', sans-serif; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BINMASTER | Comprehensive ORD Delta V5</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        .drop-zone { border: 2px dashed #cbd5e1; transition: all 0.3s ease; }
+        .drop-zone.dragover { border-color: #be123c; background-color: #fff1f2; }
+        .binmaster-red { background-color: #be123c; }
+        .binmaster-red:hover { background-color: #9f1239; }
+    </style>
 </head>
-<body>
+<body class="bg-gray-100 font-sans">
 
-<div class="header">
-  <div class="logo-mark">BinMaster</div>
-  <div class="logo-divider"></div>
-  <div class="title-area">
-    <h1>Comprehensive ORD Delta <span style="color:var(--red);">v5</span></h1>
-    <div class="sub">Compare Baseline · Surface New Orders · 10-Row Detail Pull</div>
-  </div>
-</div>
+    <header class="bg-white p-4 shadow-sm border-b-2 border-black">
+        <div class="max-w-7xl mx-auto flex items-baseline gap-4">
+            <h1 class="text-3xl font-black italic tracking-tighter text-red-700">BINMASTER</h1>
+            <div class="flex flex-col">
+                <span class="text-xl font-bold text-gray-800 uppercase">Comprehensive ORD Delta <span class="text-red-600">V5</span></span>
+                <span class="text-xs tracking-widest text-gray-400 uppercase font-semibold">Compare Baseline · Surface New Orders · 10-Row Detail Pull</span>
+            </div>
+        </div>
+    </header>
 
-<div class="wrap">
-  <div class="drop-grid">
-    <div class="card">
-      <div class="card-hd"><span class="step-badge">1</span> Baseline (Older Export)</div>
-      <div class="drop-zone" onclick="document.getElementById('in-old').click()" ondragover="ev(event)" ondrop="hDrop(event,'old')">
-        <span class="drop-icon">📂</span>
-        <strong>Baseline File</strong>
-        <div class="hint">Click to browse or drag &amp; drop (.xlsx, .csv)</div>
-        <input type="file" id="in-old" hidden onchange="hInput(this,'old')">
-        <div id="name-old"></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-hd"><span class="step-badge">2</span> Current (Newer Export)</div>
-      <div class="drop-zone" onclick="document.getElementById('in-new').click()" ondragover="ev(event)" ondrop="hDrop(event,'new')">
-        <span class="drop-icon">📂</span>
-        <strong>Current File</strong>
-        <div class="hint">Click to browse or drag &amp; drop (.xlsx, .csv)</div>
-        <input type="file" id="in-new" hidden onchange="hInput(this,'new')">
-        <div id="name-new"></div>
-      </div>
-    </div>
-  </div>
+    <main class="max-w-7xl mx-auto p-6 space-y-6">
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-white rounded shadow-sm overflow-hidden border border-gray-200">
+                <div class="bg-black text-white px-4 py-2 flex items-center gap-2">
+                    <span class="bg-red-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">1</span>
+                    <span class="text-xs font-bold uppercase tracking-wider">Baseline (Older Export)</span>
+                </div>
+                <div id="drop-baseline" class="drop-zone m-4 p-12 rounded-lg flex flex-col items-center justify-center text-center cursor-pointer">
+                    <svg class="w-12 h-12 text-yellow-400 mb-2" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path></svg>
+                    <p class="font-bold text-sm uppercase">Baseline File</p>
+                    <p class="text-xs text-gray-400">Click to browse or drag & drop (.xlsx, .csv)</p>
+                    <input type="file" id="file-baseline" class="hidden" accept=".xlsx, .xls, .csv">
+                    <p id="name-baseline" class="mt-2 text-blue-600 text-xs font-semibold"></p>
+                </div>
+            </div>
 
-  <div class="action-bar">
-    <button class="btn btn-red" onclick="runComparison()">Show New Orders</button>
-    <div class="action-note">Finds order numbers in Current absent from Baseline<br>and shows each with its 10 following rows</div>
-  </div>
+            <div class="bg-white rounded shadow-sm overflow-hidden border border-gray-200">
+                <div class="bg-black text-white px-4 py-2 flex items-center gap-2">
+                    <span class="bg-red-600 rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">2</span>
+                    <span class="text-xs font-bold uppercase tracking-wider">Current (Newer Export)</span>
+                </div>
+                <div id="drop-current" class="drop-zone m-4 p-12 rounded-lg flex flex-col items-center justify-center text-center cursor-pointer">
+                    <svg class="w-12 h-12 text-yellow-400 mb-2" fill="currentColor" viewBox="0 0 20 20"><path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path></svg>
+                    <p class="font-bold text-sm uppercase">Current File</p>
+                    <p class="text-xs text-gray-400">Click to browse or drag & drop (.xlsx, .csv)</p>
+                    <input type="file" id="file-current" class="hidden" accept=".xlsx, .xls, .csv">
+                    <p id="name-current" class="mt-2 text-blue-600 text-xs font-semibold"></p>
+                </div>
+            </div>
+        </div>
 
-  <div id="out-card" class="card" style="display:none;">
-    <div id="stats-bar" class="stats-bar"></div>
-    <div class="tbl-wrap">
-      <table id="main-table"><thead></thead><tbody></tbody></table>
-    </div>
-  </div>
-</div>
+        <div class="bg-white p-6 rounded border border-gray-200 flex items-center justify-center gap-6 shadow-sm">
+            <button id="process-btn" class="binmaster-red text-white px-8 py-3 rounded font-bold uppercase tracking-tighter text-sm transition-colors">
+                Show New Orders
+            </button>
+            <p class="text-xs text-gray-500 max-w-xs leading-tight font-medium">
+                Finds order numbers in Current absent from Baseline and shows each with its 10 following rows
+            </p>
+        </div>
 
-<script>
-// ── State ──────────────────────────────────────────────────────────────────
-var baseline = new Set();   // order numbers from the old file
-var currentData = [];       // raw row objects from the new file, untouched
-var currentCols = [];       // column names from the new file header row
+        <div id="results" class="hidden space-y-4">
+            <h2 class="text-lg font-bold uppercase border-b-2 border-black pb-1">Delta Report</h2>
+            <div id="report-output" class="overflow-x-auto bg-white rounded shadow-sm"></div>
+        </div>
+    </main>
 
-// ── File wiring ────────────────────────────────────────────────────────────
-function ev(e) { e.preventDefault(); }
-function hInput(el, who) { if (el.files[0]) loadFile(el.files[0], who); }
-function hDrop(e, who)   { ev(e); if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0], who); }
+    <script>
+        let dataStore = { baseline: null, current: null };
 
-function loadFile(file, who) {
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    var wb    = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-    var sheet = wb.Sheets[wb.SheetNames[0]];
+        // Setup UI logic
+        function setupDropZone(zoneId, inputId, key) {
+            const zone = document.getElementById(zoneId);
+            const input = document.getElementById(inputId);
+            const nameDisp = document.getElementById(`name-${key}`);
 
-    // sheet_to_json with header:1 gives us raw arrays — row 0 = headers, rest = data
-    // We use this so we can see EXACTLY what is in each cell with no XLSX inference
-    var arrays = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-
-    if (arrays.length < 2) { alert("File appears empty."); return; }
-
-    var headers = arrays[0].map(function(h) { return String(h).trim(); });
-
-    // Find which column index holds the Order #
-    var ordIdx = -1;
-    for (var c = 0; c < headers.length; c++) {
-      var h = headers[c].toLowerCase();
-      if (h.indexOf("order") !== -1 && (h.indexOf("#") !== -1 || h.indexOf("num") !== -1 || h === "ord")) {
-        ordIdx = c; break;
-      }
-    }
-    // fallback: try exact "ord"
-    if (ordIdx === -1) {
-      for (var c = 0; c < headers.length; c++) {
-        if (headers[c].toLowerCase() === "ord") { ordIdx = c; break; }
-      }
-    }
-
-    if (ordIdx === -1) { alert("Could not find an Order # column. Headers found: " + headers.join(", ")); return; }
-
-    if (who === 'old') {
-      // Build the baseline set: every non-blank order number in this file
-      baseline = new Set();
-      for (var r = 1; r < arrays.length; r++) {
-        var val = String(arrays[r][ordIdx] || "").trim();
-        if (val !== "") baseline.add(val);
-      }
-      document.getElementById('name-old').innerHTML =
-        '<span class="file-name">✅ ' + file.name + ' (' + baseline.size + ' orders)</span>';
-
-    } else {
-      // Store current file rows as plain objects keyed by header name
-      // Each row object contains ONLY what is literally in the cell — no fill, no inference
-      currentCols = headers;
-      currentData = [];
-      for (var r = 1; r < arrays.length; r++) {
-        var obj = {};
-        for (var c = 0; c < headers.length; c++) {
-          obj[headers[c]] = String(arrays[r][c] || "").trim();
+            zone.onclick = () => input.click();
+            zone.ondragover = (e) => { e.preventDefault(); zone.classList.add('dragover'); };
+            zone.ondragleave = () => zone.classList.remove('dragover');
+            zone.ondrop = (e) => {
+                e.preventDefault();
+                zone.classList.remove('dragover');
+                handleFile(e.dataTransfer.files[0], key, nameDisp);
+            };
+            input.onchange = (e) => handleFile(e.target.files[0], key, nameDisp);
         }
-        // Tag the order number separately for fast lookup
-        obj.__ord = String(arrays[r][ordIdx] || "").trim();
-        currentData.push(obj);
-      }
-      document.getElementById('name-new').innerHTML =
-        '<span class="file-name">✅ ' + file.name + ' (' + (arrays.length - 1) + ' rows)</span>';
-    }
-  };
-  reader.readAsArrayBuffer(file);
-}
 
-// ── Comparison ─────────────────────────────────────────────────────────────
-function runComparison() {
-  if (currentData.length === 0) { alert("Load the Current file first.");  return; }
-  if (baseline.size === 0)      { alert("Load the Baseline file first."); return; }
-
-  var PULL = 10;          // rows to grab after each new order header
-  var output = [];        // { row, isHeader }
-  var newOrderCount = 0;
-
-  var i = 0;
-  while (i < currentData.length) {
-    var ord = currentData[i].__ord;
-
-    if (ord !== "" && !baseline.has(ord)) {
-      // This row is a new order header — grab it + next PULL rows
-      newOrderCount++;
-      output.push({ row: currentData[i], isHeader: true });
-      for (var j = i + 1; j <= i + PULL && j < currentData.length; j++) {
-        output.push({ row: currentData[j], isHeader: false });
-      }
-      // Advance past the block we just captured
-      i = i + PULL + 1;
-    } else {
-      i++;
-    }
-  }
-
-  renderTable(output, newOrderCount);
-}
-
-// ── Render ─────────────────────────────────────────────────────────────────
-function renderTable(output, newOrderCount) {
-  var card  = document.getElementById('out-card');
-  var thead = document.querySelector('#main-table thead');
-  var tbody = document.querySelector('#main-table tbody');
-  thead.innerHTML = '';
-  tbody.innerHTML = '';
-
-  // Header row
-  var trH = document.createElement('tr');
-  var thN = document.createElement('th');
-  thN.innerText = '#'; thN.style.width = '40px';
-  trH.appendChild(thN);
-  currentCols.forEach(function(col) {
-    var th = document.createElement('th');
-    th.innerText = col;
-    trH.appendChild(th);
-  });
-  thead.appendChild(trH);
-
-  // Data rows
-  output.forEach(function(item, idx) {
-    var tr = document.createElement('tr');
-    tr.className = item.isHeader ? 'row-header' : 'row-child';
-
-    var tdN = document.createElement('td');
-    tdN.className = 'row-num';
-    tdN.innerText = idx + 1;
-    tr.appendChild(tdN);
-
-    currentCols.forEach(function(col) {
-      var td = document.createElement('td');
-      td.innerText = item.row[col] !== undefined ? item.row[col] : "";
-      if (item.isHeader) {
-        var h = col.toLowerCase();
-        if (h.indexOf("order") !== -1 && (h.indexOf("#") !== -1 || h.indexOf("num") !== -1)) {
-          td.className = 'ord-cell';
+        async function handleFile(file, key, display) {
+            if (!file) return;
+            display.innerText = `Loaded: ${file.name}`;
+            const data = await file.arrayBuffer();
+            const workbook = XLSX.read(data);
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            dataStore[key] = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
         }
-      }
-      tr.appendChild(td);
-    });
-    tbody.appendChild(tr);
-  });
 
-  // Stats
-  document.getElementById('stats-bar').innerHTML =
-    '<div class="stat-item"><div class="stat-num">' + newOrderCount + '</div><div class="stat-label">New<br>Orders</div></div>' +
-    '<div class="stats-divider"></div>' +
-    '<div class="stat-item"><div class="stat-num">' + output.length + '</div><div class="stat-label">Total<br>Rows</div></div>' +
-    '<div class="stats-divider"></div>' +
-    '<div class="stat-item"><div class="stat-num">' + baseline.size + '</div><div class="stat-label">Baseline<br>Orders</div></div>' +
-    '<div class="stats-title">New Orders — Order Row + 10 Detail Rows</div>';
+        setupDropZone('drop-baseline', 'file-baseline', 'baseline');
+        setupDropZone('drop-current', 'file-current', 'current');
 
-  card.style.display = 'block';
-  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-</script>
+        document.getElementById('process-btn').onclick = () => {
+            if (!dataStore.baseline || !dataStore.current) {
+                alert("Please upload both files first.");
+                return;
+            }
+
+            const baselineRows = dataStore.baseline;
+            const currentRows = dataStore.current;
+
+            // 1. Identify "Order Number" column index (Assuming it's the first column containing 'Order')
+            const header = currentRows[0];
+            const orderColIndex = header.findIndex(h => String(h).toLowerCase().includes('order'));
+            
+            if (orderColIndex === -1) {
+                alert("Could not find a column named 'Order Number'. Please check your Excel headers.");
+                return;
+            }
+
+            // 2. Map Baseline Order Numbers for fast lookup
+            const baselineSet = new Set(baselineRows.map(row => String(row[orderColIndex]).trim()));
+
+            // 3. Find Deltas
+            let reportHtml = `<table class="min-w-full text-xs text-left border-collapse">
+                                <thead class="bg-gray-200 uppercase font-bold">
+                                    <tr><th class="p-2 border">Status</th>${header.map(h => `<th class="p-2 border">${h || ''}</th>`).join('')}</tr>
+                                </thead><tbody>`;
+
+            let foundNew = false;
+            for (let i = 1; i < currentRows.length; i++) {
+                const orderId = String(currentRows[i][orderColIndex]).trim();
+
+                if (orderId && !baselineSet.has(orderId)) {
+                    foundNew = true;
+                    // Add the "New Order" row
+                    reportHtml += `<tr class="bg-green-50 font-bold border-t-2 border-green-200 text-green-800">
+                                    <td class="p-2 border">NEW ORDER</td>
+                                    ${currentRows[i].map(cell => `<td class="p-2 border">${cell || ''}</td>`).join('')}
+                                   </tr>`;
+                    
+                    // Add the 10 following rows
+                    for (let j = 1; j <= 10; j++) {
+                        const detailRow = currentRows[i + j];
+                        if (detailRow) {
+                            reportHtml += `<tr class="border-b">
+                                            <td class="p-2 border text-gray-400 italic">Detail +${j}</td>
+                                            ${detailRow.map(cell => `<td class="p-2 border text-gray-600">${cell || ''}</td>`).join('')}
+                                           </tr>`;
+                        }
+                    }
+                }
+            }
+
+            if (!foundNew) {
+                reportHtml = `<div class="p-8 text-center text-gray-500 font-bold uppercase">No New Orders Found</div>`;
+            } else {
+                reportHtml += `</tbody></table>`;
+            }
+
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.classList.remove('hidden');
+            document.getElementById('report-output').innerHTML = reportHtml;
+            resultsDiv.scrollIntoView({ behavior: 'smooth' });
+        };
+    </script>
 </body>
 </html>
